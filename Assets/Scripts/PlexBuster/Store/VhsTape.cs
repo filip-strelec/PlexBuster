@@ -23,6 +23,12 @@ namespace PlexBuster.Store
         public Material CoverTemplate => coverMaterial;
         public Material LoadingMaterial => loadingMaterial;
 
+        /// <summary>The loaded poster, or null while it loads (or if there is none).</summary>
+        public Texture PosterTexture =>
+            coverRenderer.sharedMaterial != loadingMaterial ? coverRenderer.sharedMaterial.GetTexture(BaseMapId) : null;
+
+        static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+
         /// <summary>Hides a shelved tape that doesn't match the search; tapes in hand or on the floor stay.</summary>
         public void SetFilteredOut(bool filteredOut)
         {

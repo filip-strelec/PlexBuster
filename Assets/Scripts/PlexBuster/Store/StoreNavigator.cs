@@ -64,6 +64,14 @@ namespace PlexBuster.Store
             return hall;
         }, returnPose);
 
+        /// <summary>The TV room: a living room with a giant CRT and a VCR to put a tape in.</summary>
+        public void EnterTvRoom(Pose returnPose) =>
+            Enter((services, position) => TvRoom.Build(theme, services.Posters, position), returnPose);
+
+        /// <summary>The cinema: stadium seating and a 12 m screen.</summary>
+        public void EnterCinema(Pose returnPose) =>
+            Enter((services, position) => CinemaRoom.Build(theme, services.Posters, position), returnPose);
+
         /// <summary>A room holding the result of <paramref name="query"/>.</summary>
         public void EnterRoom(string title, LibraryQuery query, Pose returnPose) => Enter(async (services, position) =>
         {

@@ -199,19 +199,24 @@ namespace PlexBuster.Store
 
             BuildStandee(decor, best[0], template, loading);
 
-            var spots = Layout.PosterSpots(PosterWidth + 0.06f, 0.5f);
-            for (var i = 0; i < Mathf.Min(spots.Count, MaxPosters); i++)
+            var next = 1;
+            void Poster(Vector3 point, Vector3 outward, float height)
             {
-                var (point, inward) = spots[i];
-                var item = best[(i + 1) % best.Count];
+                var item = best[next++ % best.Count];
                 var poster = new GameObject($"Poster: {item.Title}").transform;
                 poster.SetParent(decor, false);
-                poster.SetLocalPositionAndRotation(point + inward * 0.015f + Vector3.up * 1.55f, Quaternion.LookRotation(inward));
+                poster.SetLocalPositionAndRotation(point + outward * 0.015f + Vector3.up * height, Quaternion.LookRotation(outward));
 
                 var box = Signage.Box(poster, "Frame", new Vector3(0, 0, -0.005f), new Vector3(PosterWidth + 0.06f, PosterWidth * 1.5f + 0.06f, 0.02f), frame);
                 Destroy(box.GetComponent<Collider>());
                 CoverDisplay.Show(Picture(poster, PosterWidth, 0.006f), item, posters, template, loading);
             }
+
+            var spots = Layout.PosterSpots(PosterWidth + 0.06f, 0.5f);
+            for (var i = 0; i < Mathf.Min(spots.Count, MaxPosters); i++) Poster(spots[i].Position, spots[i].Inward, 1.55f);
+
+            // A single-sided island shows its back to the room: dress it with a poster too.
+            foreach (var (point, outward) in Layout.LoneIslandBacks()) Poster(point, outward, 0.95f);
         }
 
         void BuildStandee(Transform parent, LibraryItem item, Material template, Material loading)

@@ -92,10 +92,11 @@ namespace PlexBuster.Store
             return tape;
         }
 
+        /// <summary>Removes the unit's tapes, except those the player has taken away (in hand, basket or info slot).</summary>
         public void Clear()
         {
             foreach (var tape in tapes)
-                if (tape != null) Destroy(tape.gameObject);
+                if (tape != null && tape.transform.parent == tapeRoot) Destroy(tape.gameObject);
             tapes.Clear();
         }
 
@@ -134,7 +135,15 @@ namespace PlexBuster.Store
                 Box(frame, "Lip", new Vector3(0, boardTop + 0.0175f, -0.03f), new Vector3(innerWidth, 0.035f, 0.015f));
             }
             Box(frame, "Top", new Vector3(0, Height + 0.01f, -Depth * 0.5f), new Vector3(Width, 0.02f, Depth), accent);
+
+            // A finished skin over the whole back. The back board, sides, base and shelf boards all end in the same
+            // plane, which flickers (z-fighting) wherever a unit's back is on show, as on a single-sided island.
+            Box(frame, "BackSkin", new Vector3(0, (Height + 0.02f) * 0.5f, -Depth - BackSkin * 0.5f),
+                new Vector3(Width, Height + 0.02f, BackSkin), accent);
         }
+
+        /// <summary>Thickness of the panel covering the back, behind <see cref="Depth"/>.</summary>
+        public const float BackSkin = 0.004f;
 
         void Box(Transform parent, string name, Vector3 centre, Vector3 size, Material material = null) =>
             Signage.Box(parent, name, centre, size, material != null ? material : frameMaterial);

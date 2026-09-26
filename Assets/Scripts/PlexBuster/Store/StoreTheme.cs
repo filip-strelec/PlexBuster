@@ -38,6 +38,14 @@ namespace PlexBuster.Store
         [Tooltip("TextMeshPro material for EXIT signs. Optional.")]
         public Material exitTextMaterial;
 
+        [Header("TV room and cinema")]
+        [Tooltip("PlexBuster/Video Screen material with the CRT look, for the TV room.")]
+        public Material crtScreenMaterial;
+        [Tooltip("PlexBuster/Video Screen material for the cinema screen.")]
+        public Material cinemaScreenMaterial;
+        [Tooltip("Transparent additive material for light beams (the projector's, the info hologram's).")]
+        public Material beamMaterial;
+
         [Header("Rooms")]
         public float wallHeight = 3f;
         public Color lightColor = new(1f, 0.97f, 0.9f);

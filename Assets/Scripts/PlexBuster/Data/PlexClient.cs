@@ -18,7 +18,8 @@ namespace PlexBuster.Data
     }
 
     /// <summary>
-    /// Thin Plex HTTP client. The token goes in a header (never in URLs or logs), JSON responses are
+    /// Thin Plex HTTP client. The token goes in a header (never in URLs or logs; the one exception is the play
+    /// command a TV needs to stream, sent over the LAN by <see cref="PlexRemotePlayback"/>), JSON responses are
     /// cached on disk and served stale when the server is unreachable, and posters are fetched
     /// through Plex's photo transcoder at a small size and cached on disk.
     /// </summary>
@@ -55,8 +56,34 @@ namespace PlexBuster.Data
             Directory.CreateDirectory(posterCacheDir);
         }
 
+        internal string ServerUrl => serverUrl;
+        internal string ClientId => clientId;
+        /// <summary>Only for handing to a Plex player that must stream from the server (see <see cref="PlexRemotePlayback"/>).</summary>
+        internal string Token => token;
+
         internal Task<PlexContainer> GetAsync(string pathAndQuery, CancellationToken ct) =>
             GetJsonAsync(serverUrl + pathAndQuery, pathAndQuery, CacheTtl, ct);
+
+        /// <summary>Always asks the server (for state that changes, like where a title was left off); the cached copy is only a fallback.</summary>
+        internal Task<PlexContainer> GetFreshAsync(string pathAndQuery, CancellationToken ct) =>
+            GetJsonAsync(serverUrl + pathAndQuery, pathAndQuery, TimeSpan.Zero, ct);
+
+        internal async Task<PlexContainer> PostAsync(string pathAndQuery, CancellationToken ct)
+        {
+            using var request = new UnityWebRequest(serverUrl + pathAndQuery, UnityWebRequest.kHttpVerbPOST, new DownloadHandlerBuffer(), null);
+            request.SetRequestHeader("Accept", "application/json");
+            await SendAsync(request, pathAndQuery, ct);
+            return Parse(request.downloadHandler.text);
+        }
+
+        /// <summary>An uncached plex.tv response that isn't a MediaContainer in JSON (XML device lists, resource arrays).</summary>
+        internal async Task<string> GetAccountTextAsync(string url, string accept, CancellationToken ct)
+        {
+            using var request = UnityWebRequest.Get(url);
+            request.SetRequestHeader("Accept", accept);
+            await SendAsync(request, url, ct);
+            return request.downloadHandler.text;
+        }
 
         /// <summary>
         /// A plex.tv service rather than the server (the watchlist lives on the account). Cached briefly,
@@ -87,6 +114,25 @@ namespace PlexBuster.Data
 
             await File.WriteAllTextAsync(cacheFile, json, ct);
             return Parse(json);
+        }
+
+        /// <summary>
+        /// Where a server path redirects to, without following it: Plex serves online trailers as a redirect to a
+        /// signed CDN URL that a video player can stream without the token. Null if the path doesn't redirect.
+        /// </summary>
+        internal async Task<string> ResolveRedirectAsync(string pathAndQuery, CancellationToken ct)
+        {
+            using var request = new UnityWebRequest(serverUrl + pathAndQuery, UnityWebRequest.kHttpVerbGET) { redirectLimit = 0 };
+            try
+            {
+                await SendAsync(request, pathAndQuery, ct);
+            }
+            catch (PlexRequestException)
+            {
+                // Refusing to follow the redirect counts as a failure; the Location header is still there.
+            }
+            var location = request.GetResponseHeader("Location");
+            return location != null && location.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? location : null;
         }
 
         /// <summary>Fetches every item behind a listing path, a page at a time.</summary>

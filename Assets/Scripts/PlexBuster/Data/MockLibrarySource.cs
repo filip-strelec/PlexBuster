@@ -159,11 +159,64 @@ namespace PlexBuster.Data
             return GeneratePoster(item);
         }
 
+        public async Task<Texture2D> LoadImageAsync(string path, int width, int height, CancellationToken ct)
+        {
+            await Task.Yield();
+            ct.ThrowIfCancellationRequested();
+            var item = items.FirstOrDefault(i => i.PosterPath == path);
+            return GeneratePoster(item?.Id ?? path, item?.Title ?? path);
+        }
+
+        public async Task<ItemDetails> GetDetailsAsync(LibraryItem item, CancellationToken ct)
+        {
+            await Task.Yield();
+            ct.ThrowIfCancellationRequested();
+            var rng = new System.Random(item.Id.GetHashCode());
+            var details = new ItemDetails
+            {
+                Item = item,
+                SectionTitle = MockSections.First(s => s.Id == item.SectionId).Title,
+                Released = new DateTime(item.Year, rng.Next(1, 13), rng.Next(1, 29)),
+                Added = DateTimeOffset.FromUnixTimeSeconds(item.AddedAt).LocalDateTime,
+                ViewCount = rng.Next(3) == 0 ? rng.Next(1, 5) : 0,
+                MediaSummary = "1080p · H.264 · AAC stereo · MKV · 8.2 Mbps · 4.1 GB",
+                ArtPath = $"mock-art-{item.Id}",
+            };
+            if (details.ViewCount > 0) details.LastViewed = DateTime.Now.AddDays(-rng.Next(1, 900));
+            details.Ratings.Add(new ItemRating("IMDb", "audience", item.AudienceRating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "/10"));
+            details.Ratings.Add(new ItemRating("Rotten Tomatoes", "critic", $"{Mathf.RoundToInt(item.Rating * 10)}%"));
+            details.Genres.AddRange(item.Genres);
+            details.Countries.Add(Pick(rng, new[] { "United States", "United Kingdom", "Yugoslavia", "France" }));
+            details.Directors.AddRange(item.Directors);
+            details.Writers.Add(Pick(rng, directors));
+            details.Producers.Add(Pick(rng, actors));
+            foreach (var actor in actors.OrderBy(_ => rng.Next()).Take(12))
+                details.Cast.Add(new CastMember(actor, $"{Pick(rng, Adjectives)} {Pick(rng, Nouns)}", $"mock-person-{actor}"));
+            if (item.Kind == MediaKind.Show)
+                for (var s = 1; s <= item.SeasonCount; s++)
+                    details.Seasons.Add($"Season {s} · {item.EpisodeCount / item.SeasonCount} episodes");
+            return details;
+        }
+
+        // No trailers or films offline.
+        public Task<string> ResolveVideoUrlAsync(ExtraVideo video, CancellationToken ct) => Task.FromResult<string>(null);
+        public Task<VideoStream> OpenStreamAsync(string key, long offsetMs, CancellationToken ct) => Task.FromResult<VideoStream>(null);
+        public void CloseStream(VideoStream stream) { }
+        public Task<Subtitles> LoadSubtitlesAsync(SubtitleTrack track, CancellationToken ct) => Task.FromResult<Subtitles>(null);
+
+        public Task<IReadOnlyList<EpisodeRef>> GetEpisodesAsync(LibraryItem show, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<EpisodeRef>>(Enumerable.Range(0, show.EpisodeCount)
+                .Select(i => new EpisodeRef { Key = $"{show.Id}-e{i}", Label = $"S1 · E{i + 1} · Episode {i + 1}", DurationMs = 45 * 60_000L })
+                .ToList());
+        public Task ReportProgressAsync(VideoStream stream, string state, long positionMs, CancellationToken ct) => Task.CompletedTask;
+
+        static Texture2D GeneratePoster(LibraryItem item) => GeneratePoster(item.Id, item.Title);
+
         /// <summary>Two-tone gradient with a title band, tinted per item so tapes are distinguishable.</summary>
-        static Texture2D GeneratePoster(LibraryItem item)
+        static Texture2D GeneratePoster(string id, string title)
         {
             const int w = 128, h = 192;
-            var seed = item.Id.GetHashCode();
+            var seed = id.GetHashCode();
             var top = Color.HSVToRGB(Mathf.Abs(seed % 360) / 360f, 0.75f, 0.9f);
             var bottom = Color.HSVToRGB(Mathf.Abs(seed / 360 % 360) / 360f, 0.8f, 0.25f);
             var band = Color.Lerp(top, Color.white, 0.6f);
@@ -177,7 +230,7 @@ namespace PlexBuster.Data
                     pixels[y * w + x] = inBand && x > 10 && x < w - 10 ? band : row;
             }
 
-            var texture = new Texture2D(w, h, TextureFormat.RGBA32, true) { name = item.Title, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
+            var texture = new Texture2D(w, h, TextureFormat.RGBA32, true) { name = title, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
             texture.SetPixels32(pixels);
             texture.Apply(true, false);
             PosterTextures.Finish(texture);

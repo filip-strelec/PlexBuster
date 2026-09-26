@@ -75,6 +75,19 @@ namespace PlexBuster.Store
                 enabled = false;
                 return;
             }
+            Build();
+        }
+
+        /// <summary>Builds the cabinet and starts on a freshly shuffled song list.</summary>
+        void Build()
+        {
+            // After a script reload in Play mode the old cabinet is still in the scene, but nothing points at it.
+            var stale = transform.Find("Cabinet");
+            if (stale != null) Destroy(stale.gameObject);
+
+            tracks.Clear();
+            index = -1;
+            loading = rescanning = paused = false;
             cabinet = JukeboxCabinet.Build(transform, theme, Previous, TogglePause, Next);
             nextScan = Time.unscaledTime + RescanSeconds;
             Step(+1);
@@ -88,6 +101,15 @@ namespace PlexBuster.Store
 
         void Update()
         {
+            if (cabinet == null)
+            {
+                // A script reload in Play mode keeps the GameObjects but drops plain C# state (the cabinet, the
+                // song list, pending loads); rebuild rather than fail every frame.
+                source = GetComponent<AudioSource>();
+                Build();
+                return;
+            }
+
             if (!loading && !rescanning)
             {
                 if (tracks.Count == 0)
@@ -168,6 +190,9 @@ namespace PlexBuster.Store
             tracks.Clear();
             tracks.AddRange(found);
             index = -1;
+            if (found.Count > 0)
+                Debug.Log($"[Jukebox] Shuffled {found.Count} songs from {folder}: " +
+                          string.Join(", ", found.ConvertAll(t => t.Title)));
         }
 
         async void Play(int i)
@@ -177,7 +202,7 @@ namespace PlexBuster.Store
             var version = ++loadVersion;
             loading = true;
             StopPlayback();
-            ShowMessage(track.Title, track.Artist, $"{i + 1} of {tracks.Count}", "LOADING…");
+            ShowMessage(track.Title, track.Artist, Shuffling, "LOADING…");
 
             AudioClip clip;
             try
@@ -270,8 +295,11 @@ namespace PlexBuster.Store
             var second = Mathf.FloorToInt(source.time);
             if (second == shownSecond) return;
             shownSecond = second;
-            cabinet.Info.text = $"{Clock(source.time)} / {Clock(source.clip.length)}   ·   {index + 1} of {tracks.Count}";
+            cabinet.Info.text = $"{Clock(source.time)} / {Clock(source.clip.length)}   ·   {Shuffling}";
         }
+
+        // Not "3 of 8": a position in the shuffled order reads as if the songs played in folder order.
+        string Shuffling => $"SHUFFLE  ·  {tracks.Count} SONGS";
 
         static string Clock(float seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
 

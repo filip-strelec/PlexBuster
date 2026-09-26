@@ -7,7 +7,8 @@ namespace PlexBuster.Store
 {
     /// <summary>
     /// The corridor behind the lobby with one door per library section ("department"): Movies, TV Shows,
-    /// and every other section. Each door leads to that section's own hall of genre rooms.
+    /// and every other section. Each door leads to that section's own hall of genre rooms. The TV room and the
+    /// cinema come first.
     /// Sits at the lobby opening; the corridor runs along this object's +Z.
     /// </summary>
     public class LobbyDepartments : MonoBehaviour
@@ -31,6 +32,9 @@ namespace PlexBuster.Store
                     .ThenBy(s => s.index)
                     .Select(s => new DoorHall.Door(s.section.Title, pose => StoreNavigator.Instance.EnterSection(s.section, pose)))
                     .ToList();
+                // First along the corridor, so a tape from the lobby is a short walk from a screen.
+                doors.Insert(0, new DoorHall.Door("Cinema", pose => StoreNavigator.Instance.EnterCinema(pose)));
+                doors.Insert(0, new DoorHall.Door("TV Room", pose => StoreNavigator.Instance.EnterTvRoom(pose)));
                 // At the end of the corridor: everything on the Plex watchlist that the library has.
                 var watchlist = new DoorHall.Door("My Watchlist", pose =>
                     StoreNavigator.Instance.EnterRoom("My Watchlist", new LibraryQuery { Filter = FilterType.Watchlist }, pose));

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace PlexBuster.Store
 {
     /// <summary>
-    /// Owns the catalogue source and the poster cache for the store. Auto mode uses Plex when
+    /// Owns the catalogue source, the poster cache and TV playback for the store. Auto mode uses Plex when
     /// PLEX_URL and PLEX_TOKEN are set (environment or .env) and falls back to fake data otherwise (or if Plex fails).
     /// </summary>
     [DefaultExecutionOrder(-100)]
@@ -24,6 +24,7 @@ namespace PlexBuster.Store
         public static StoreServices Instance { get; private set; }
         public ILibrarySource Library { get; private set; }
         public PosterCache Posters { get; private set; }
+        public IRemotePlayback Playback { get; private set; }
 
         /// <summary>Completes once the library is initialised and usable.</summary>
         /// <remarks>
@@ -62,7 +63,9 @@ namespace PlexBuster.Store
             {
                 try
                 {
-                    await Use(new PlexLibrarySource(new PlexClient(config), posterSize.x, posterSize.y));
+                    var client = new PlexClient(config);
+                    await Use(new PlexLibrarySource(client, posterSize.x, posterSize.y),
+                        new PlexRemotePlayback(client, config.PreferredPlayer));
                     return;
                 }
                 catch (Exception e) when (e is not OperationCanceledException && sourceMode == SourceMode.Auto)
@@ -77,14 +80,15 @@ namespace PlexBuster.Store
                           string.Join(", ", PlexConfig.CandidatePaths()));
             }
 
-            await Use(new MockLibrarySource());
+            await Use(new MockLibrarySource(), new MockRemotePlayback());
         }
 
-        async Task Use(ILibrarySource source)
+        async Task Use(ILibrarySource source, IRemotePlayback playback)
         {
             await source.InitializeAsync(lifetime.Token);
             Library = source;
             Posters = new PosterCache(source);
+            Playback = playback;
             Debug.Log($"[Store] Library source: {source.Name}");
             ready.TrySetResult(true);
         }

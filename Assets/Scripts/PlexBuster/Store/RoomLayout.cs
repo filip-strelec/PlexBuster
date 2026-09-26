@@ -95,6 +95,24 @@ namespace PlexBuster.Store
             }
         }
 
+        /// <summary>
+        /// Island units whose other face wasn't needed, so their back shows: (centre of the back at floor level,
+        /// direction it faces).
+        /// </summary>
+        public List<(Vector3 Position, Vector3 Outward)> LoneIslandBacks()
+        {
+            var backs = new List<(Vector3, Vector3)>();
+            foreach (var shelf in Shelves)
+            {
+                if (shelf.Rows != IslandRows) continue;
+                var outward = shelf.Rotation * Vector3.back;
+                var partner = shelf.Position + outward * IslandDepth;
+                if (Shelves.Any(s => (s.Position - partner).sqrMagnitude < 0.01f)) continue;
+                backs.Add((shelf.Position + outward * (ShelfDepth + ShelfUnit.BackSkin), outward));
+            }
+            return backs;
+        }
+
         public static RoomLayout For(int itemCount)
         {
             RoomLayout best = null;

@@ -31,6 +31,9 @@ MonoBehaviour:
   exitColor: {r: 1, g: 1, b: 1, a: 1}
   signTextMaterial: {fileID: 2100000, guid: 0434ea0de06b8b14db1a755eec19f15a, type: 2}
   exitTextMaterial: {fileID: 2100000, guid: 596da849b5c3502488ab2089a895fb65, type: 2}
+  crtScreenMaterial: {fileID: 2100000, guid: d12a9a6b0c361ab41b15f3a603c8d564, type: 2}
+  cinemaScreenMaterial: {fileID: 2100000, guid: 905ec80e2235f8444b46eeb060445a1d, type: 2}
+  beamMaterial: {fileID: 2100000, guid: 5b001168de900db47ad13c6f9d238b15, type: 2}
   wallHeight: 3
   lightColor: {r: 1, g: 0.97, b: 0.9, a: 1}
   lightIntensity: 1.4

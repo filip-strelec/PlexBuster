@@ -76,16 +76,20 @@ namespace PlexBuster.Store
         /// a dark vestibule behind it, and EXIT above the door. Returns the trigger that fires when the player
         /// steps into the vestibule.
         /// </summary>
-        public static DoorTrigger FrontWallWithExit(Transform parent, StoreTheme theme, float width, float height)
+        /// <param name="wall">The wall's material; the theme's by default.</param>
+        /// <param name="band">Whether the wall gets the store's coloured band along the top.</param>
+        public static DoorTrigger FrontWallWithExit(Transform parent, StoreTheme theme, float width, float height,
+            Material wall = null, bool band = true)
         {
+            wall ??= theme.wallMaterial;
             var segment = (width - DoorWidth) / 2;
             for (var side = -1; side <= 1; side += 2)
                 Signage.Box(parent, "Wall_Front", new Vector3(side * (DoorWidth + segment) / 2, height / 2, -WallThickness / 2),
-                    new Vector3(segment, height, WallThickness), theme.wallMaterial);
+                    new Vector3(segment, height, WallThickness), wall);
             Signage.Box(parent, "Lintel", new Vector3(0, (DoorHeight + height) / 2, -WallThickness / 2),
-                new Vector3(DoorWidth, height - DoorHeight, WallThickness), theme.wallMaterial);
+                new Vector3(DoorWidth, height - DoorHeight, WallThickness), wall);
 
-            WallBand(parent, theme, new Vector3(-width / 2, 0, 0), new Vector3(width / 2, 0, 0), Vector3.forward, height);
+            if (band) WallBand(parent, theme, new Vector3(-width / 2, 0, 0), new Vector3(width / 2, 0, 0), Vector3.forward, height);
 
             var z = -WallThickness - VestibuleDepth / 2;
             var outer = DoorWidth + 2 * WallThickness;
@@ -97,8 +101,11 @@ namespace PlexBuster.Store
                 Signage.Box(parent, "Vestibule_Side", new Vector3(side * (DoorWidth + WallThickness) / 2, DoorHeight / 2, z),
                     new Vector3(WallThickness, DoorHeight, VestibuleDepth), theme.doorwayMaterial);
 
-            Signage.CreateText(parent, "Exit", new Vector3(0, DoorHeight + 0.26f, 0.02f), Quaternion.Euler(0, 180, 0),
-                2.2f, theme.exitColor, new Vector2(DoorWidth, 0.35f), material: theme.exitTextMaterial).text = "EXIT";
+            // In the space between the door and the ceiling (low rooms have less of it).
+            var above = height - DoorHeight;
+            var signHeight = Mathf.Min(0.35f, above * 0.85f);
+            Signage.CreateText(parent, "Exit", new Vector3(0, DoorHeight + Mathf.Min(0.26f, above / 2), 0.02f), Quaternion.Euler(0, 180, 0),
+                2.2f, theme.exitColor, new Vector2(DoorWidth, signHeight), material: theme.exitTextMaterial).text = "EXIT";
 
             var exit = new GameObject("Exit").AddComponent<DoorTrigger>();
             exit.transform.SetParent(parent, false);
