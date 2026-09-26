@@ -65,12 +65,15 @@ namespace PlexBuster.Store
             var shell = new GameObject("Shell").transform;
             shell.SetParent(transform, false);
 
-            StoreShell.Floor(shell, new Vector3(0, -0.05f, d / 2), new Vector3(w + 2 * WallThickness, 0.1f, d + 2 * WallThickness), theme.floorMaterial);
-            Signage.Box(shell, "Ceiling", new Vector3(0, h + 0.05f, d / 2), new Vector3(w + 2 * WallThickness, 0.1f, d + 2 * WallThickness), theme.ceilingMaterial);
+            StoreShell.Floor(shell, new Vector3(0, -0.05f, d / 2), new Vector3(w + 2 * WallThickness, 0.1f, d + 2 * WallThickness), theme.floorMaterial, theme.floorTileMeters);
+            StoreShell.Ceiling(shell, new Vector3(0, h + 0.05f, d / 2), new Vector3(w + 2 * WallThickness, 0.1f, d + 2 * WallThickness), theme);
 
             Signage.Box(shell, "Wall_Back", new Vector3(0, h / 2, d + WallThickness / 2), new Vector3(w, h, WallThickness), theme.wallMaterial);
             Signage.Box(shell, "Wall_Left", new Vector3(-(w + WallThickness) / 2, h / 2, d / 2), new Vector3(WallThickness, h, d + 2 * WallThickness), theme.wallMaterial);
             Signage.Box(shell, "Wall_Right", new Vector3((w + WallThickness) / 2, h / 2, d / 2), new Vector3(WallThickness, h, d + 2 * WallThickness), theme.wallMaterial);
+            StoreShell.WallBand(shell, theme, new Vector3(-w / 2, 0, d), new Vector3(w / 2, 0, d), Vector3.back, h);
+            StoreShell.WallBand(shell, theme, new Vector3(-w / 2, 0, 0), new Vector3(-w / 2, 0, d), Vector3.right, h);
+            StoreShell.WallBand(shell, theme, new Vector3(w / 2, 0, 0), new Vector3(w / 2, 0, d), Vector3.left, h);
             Exit = StoreShell.FrontWallWithExit(shell, theme, w, h);
 
             var nx = Mathf.Max(1, Mathf.RoundToInt(w / theme.lightSpacing));
@@ -88,13 +91,13 @@ namespace PlexBuster.Store
             var h = theme.wallHeight;
 
             // Title on the back wall, above the shelves, facing the entrance.
-            var titleSign = Signage.CreateText(signs, "Title", new Vector3(0, (h + 2.05f) / 2, d - 0.02f), Quaternion.identity,
-                5f, theme.signColor, new Vector2(Layout.Width - 1f, h - 2.05f));
+            // On the wall band, above the shelves.
+            var bandHeight = h - StoreShell.BandBottom;
+            var titleSign = Signage.CreateText(signs, "Title", new Vector3(0, StoreShell.BandBottom + bandHeight / 2, d - 0.02f), Quaternion.identity,
+                5f, theme.signColor, new Vector2(Layout.Width - 1f, bandHeight - 0.06f), material: theme.signTextMaterial);
             titleSign.text = title.ToUpperInvariant();
             titleSign.fontStyle = FontStyles.Bold;
-            titleSign.enableAutoSizing = true;
             titleSign.fontSizeMin = 1f;
-            titleSign.fontSizeMax = 5f;
 
             if (items.Count == 0)
                 Signage.CreateText(signs, "Empty", new Vector3(0, 1.4f, d - 0.02f), Quaternion.identity, 2f, theme.labelColor,
@@ -113,7 +116,7 @@ namespace PlexBuster.Store
                 go.transform.SetParent(root, false);
                 go.transform.SetLocalPositionAndRotation(placement.Position, placement.Rotation);
                 var unit = go.AddComponent<ShelfUnit>();
-                unit.Configure(RoomLayout.Columns, placement.Rows, theme.shelfMaterial);
+                unit.Configure(RoomLayout.Columns, placement.Rows, theme.shelfMaterial, theme.shelfAccentMaterial);
                 unit.EnsureBuilt();
                 shelves.Add(unit);
             }

@@ -12,11 +12,38 @@ namespace PlexBuster.Store
         public const float DoorHeight = 2.4f;
         const float VestibuleDepth = 1.2f;
 
-        public static GameObject Floor(Transform parent, Vector3 centre, Vector3 size, Material material)
+        public const float BandBottom = 2.45f;
+
+        public static GameObject Floor(Transform parent, Vector3 centre, Vector3 size, Material material, float metersPerTile = 0)
         {
             var floor = Signage.Box(parent, "Floor", centre, size, material);
             floor.AddComponent<TeleportationArea>().interactionLayers = InteractionLayerMask.GetMask("Teleport");
+            if (metersPerTile > 0) TiledSurface.Apply(floor, metersPerTile);
             return floor;
+        }
+
+        public static GameObject Ceiling(Transform parent, Vector3 centre, Vector3 size, StoreTheme theme)
+        {
+            var ceiling = Signage.Box(parent, "Ceiling", centre, size, theme.ceilingMaterial);
+            TiledSurface.Apply(ceiling, theme.ceilingTileMeters);
+            return ceiling;
+        }
+
+        /// <summary>
+        /// A coloured band along the top of a wall, from just above the doors to the ceiling, where the
+        /// room's sign sits. <paramref name="start"/>/<paramref name="end"/> run along the wall face,
+        /// <paramref name="outward"/> points from the wall into the room.
+        /// </summary>
+        public static void WallBand(Transform parent, StoreTheme theme, Vector3 start, Vector3 end, Vector3 outward, float height)
+        {
+            if (theme.wallBandMaterial == null) return;
+            var along = end - start;
+            var centre = (start + end) / 2 + outward * 0.005f + Vector3.up * (BandBottom + height) / 2;
+            var size = Mathf.Abs(Vector3.Dot(outward, Vector3.right)) > 0.5f
+                ? new Vector3(0.01f, height - BandBottom, along.magnitude)
+                : new Vector3(along.magnitude, height - BandBottom, 0.01f);
+            var band = Signage.Box(parent, "WallBand", centre, size, theme.wallBandMaterial);
+            Object.Destroy(band.GetComponent<Collider>());
         }
 
         public static void CeilingLight(Transform parent, StoreTheme theme, Vector3 ceilingPoint, bool withPanel = true)
@@ -58,6 +85,8 @@ namespace PlexBuster.Store
             Signage.Box(parent, "Lintel", new Vector3(0, (DoorHeight + height) / 2, -WallThickness / 2),
                 new Vector3(DoorWidth, height - DoorHeight, WallThickness), theme.wallMaterial);
 
+            WallBand(parent, theme, new Vector3(-width / 2, 0, 0), new Vector3(width / 2, 0, 0), Vector3.forward, height);
+
             var z = -WallThickness - VestibuleDepth / 2;
             var outer = DoorWidth + 2 * WallThickness;
             var vestibuleFloor = Floor(parent, new Vector3(0, -0.05f, z), new Vector3(outer, 0.1f, VestibuleDepth), theme.doorwayMaterial);
@@ -68,8 +97,8 @@ namespace PlexBuster.Store
                 Signage.Box(parent, "Vestibule_Side", new Vector3(side * (DoorWidth + WallThickness) / 2, DoorHeight / 2, z),
                     new Vector3(WallThickness, DoorHeight, VestibuleDepth), theme.doorwayMaterial);
 
-            Signage.CreateText(parent, "Exit", new Vector3(0, DoorHeight + 0.22f, 0.02f), Quaternion.Euler(0, 180, 0),
-                2.2f, theme.exitColor, new Vector2(DoorWidth, 0.35f)).text = "EXIT";
+            Signage.CreateText(parent, "Exit", new Vector3(0, DoorHeight + 0.26f, 0.02f), Quaternion.Euler(0, 180, 0),
+                2.2f, theme.exitColor, new Vector2(DoorWidth, 0.35f), material: theme.exitTextMaterial).text = "EXIT";
 
             var exit = new GameObject("Exit").AddComponent<DoorTrigger>();
             exit.transform.SetParent(parent, false);

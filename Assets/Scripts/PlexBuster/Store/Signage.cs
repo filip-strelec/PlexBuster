@@ -12,8 +12,10 @@ namespace PlexBuster.Store
         /// World-space text. TextMeshPro reads from its -Z side, so pass a rotation whose -Z points at the viewer.
         /// A font size of 1 gives capitals roughly 7 cm tall. Text shrinks (down to a third) to fit <paramref name="size"/>.
         /// </summary>
+        /// <param name="material">Optional TextMeshPro material (e.g. a glowing sign preset); by default a single-sided copy of the font's.</param>
         public static TextMeshPro CreateText(Transform parent, string name, Vector3 localPosition, Quaternion localRotation,
-            float fontSize, Color color, Vector2 size, TextAlignmentOptions alignment = TextAlignmentOptions.Center)
+            float fontSize, Color color, Vector2 size, TextAlignmentOptions alignment = TextAlignmentOptions.Center,
+            Material material = null)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -29,8 +31,9 @@ namespace PlexBuster.Store
             text.alignment = alignment;
             text.textWrappingMode = TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Ellipsis;
+            if (material != null) text.fontSharedMaterial = material;
             // Only at runtime: a material created here can't be saved into a scene.
-            if (Application.isPlaying) text.fontSharedMaterial = SingleSided(text.fontSharedMaterial);
+            else if (Application.isPlaying) text.fontSharedMaterial = SingleSided(text.fontSharedMaterial);
             return text;
         }
 
@@ -53,7 +56,7 @@ namespace PlexBuster.Store
         /// Origin is where it meets the wall; +Z points out of the wall.
         /// </summary>
         public static void CreateBladeSign(Transform parent, string text, Vector3 localPosition, Quaternion localRotation,
-            Material boardMaterial, Color textColor)
+            Material boardMaterial, Color textColor, Material textMaterial = null)
         {
             const float length = 0.9f, height = 0.32f, thickness = 0.04f;
             var sign = new GameObject("BladeSign").transform;
@@ -68,7 +71,7 @@ namespace PlexBuster.Store
                 // Text -Z must face the viewer on this side (±X).
                 var rotation = Quaternion.LookRotation(new Vector3(-side, 0, 0));
                 CreateText(sign, "Text", new Vector3(side * (thickness / 2 + 0.002f), 0, length / 2 + 0.03f), rotation,
-                    1.3f, textColor, new Vector2(length - 0.08f, height - 0.06f)).text = text;
+                    1.3f, textColor, new Vector2(length - 0.08f, height - 0.06f), material: textMaterial).text = text;
             }
         }
 

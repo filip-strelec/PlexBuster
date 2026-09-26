@@ -70,11 +70,15 @@ namespace PlexBuster.Store
             var shell = new GameObject("Shell").transform;
             shell.SetParent(transform, false);
 
-            StoreShell.Floor(shell, new Vector3(0, -0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme.floorMaterial);
-            Signage.Box(shell, "Ceiling", new Vector3(0, h + 0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme.ceilingMaterial);
+            StoreShell.Floor(shell, new Vector3(0, -0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme.floorMaterial, theme.floorTileMeters);
+            StoreShell.Ceiling(shell, new Vector3(0, h + 0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme);
             Signage.Box(shell, "Wall_End", new Vector3(0, h / 2, length + WallThickness / 2), new Vector3(Width + 2 * WallThickness, h, WallThickness), theme.wallMaterial);
+            StoreShell.WallBand(shell, theme, new Vector3(-Width / 2, 0, length), new Vector3(Width / 2, 0, length), Vector3.back, h);
             for (var side = -1; side <= 1; side += 2)
+            {
                 Signage.Box(shell, "Wall_Side", new Vector3(side * (Width + WallThickness) / 2, h / 2, length / 2), new Vector3(WallThickness, h, length), theme.wallMaterial);
+                StoreShell.WallBand(shell, theme, new Vector3(side * Width / 2, 0, 0), new Vector3(side * Width / 2, 0, length), Vector3.left * side, h);
+            }
             if (withExit) Exit = StoreShell.FrontWallWithExit(shell, theme, Width + 2 * WallThickness, h);
 
             for (var z = 2f; z < length; z += theme.lightSpacing)
@@ -83,14 +87,14 @@ namespace PlexBuster.Store
             if (!string.IsNullOrEmpty(entranceSign))
             {
                 var sign = Signage.CreateText(transform, "Sign_Entrance", new Vector3(0, h - 0.4f, -0.25f), Quaternion.identity,
-                    3f, theme.signColor, new Vector2(Width, 0.6f));
+                    3f, theme.signColor, new Vector2(Width, 0.6f), material: theme.signTextMaterial);
                 sign.text = entranceSign.ToUpperInvariant();
                 sign.fontStyle = FontStyles.Bold;
             }
             if (!string.IsNullOrEmpty(title))
             {
                 var sign = Signage.CreateText(transform, "Sign_Title", new Vector3(0, h - 0.3f, length - 0.02f), Quaternion.identity,
-                    3f, theme.signColor, new Vector2(Width - 0.3f, 0.5f));
+                    3f, theme.signColor, new Vector2(Width - 0.3f, 0.5f), material: theme.signTextMaterial);
                 sign.text = title.ToUpperInvariant();
                 sign.fontStyle = FontStyles.Bold;
             }
@@ -109,11 +113,11 @@ namespace PlexBuster.Store
                 Signage.Box(root, "Frame_Side", new Vector3(side * (DoorWidth + 0.1f) / 2, DoorHeight / 2, 0.03f), new Vector3(0.1f, DoorHeight, 0.06f), theme.doorFrameMaterial);
 
             var label = Signage.CreateText(root, "Label", new Vector3(0, DoorHeight + 0.32f, 0.02f), Quaternion.Euler(0, 180, 0),
-                1.6f, theme.signColor, new Vector2(DoorSpacing - 0.2f, 0.4f));
+                1.6f, theme.signColor, new Vector2(DoorSpacing - 0.2f, 0.4f), material: theme.signTextMaterial);
             label.text = door.Label.ToUpperInvariant();
             if (bladeSign)
                 Signage.CreateBladeSign(root, door.Label.ToUpperInvariant(), new Vector3(DoorWidth / 2 + 0.25f, 2.25f, 0),
-                    Quaternion.identity, theme.doorFrameMaterial, theme.signColor);
+                    Quaternion.identity, theme.doorFrameMaterial, theme.signColor, theme.signTextMaterial);
 
             var trigger = new GameObject("Trigger").AddComponent<DoorTrigger>();
             trigger.transform.SetParent(root, false);

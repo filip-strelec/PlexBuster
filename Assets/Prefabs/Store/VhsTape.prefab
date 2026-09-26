@@ -226,8 +226,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlexBuster.Store.VhsTape
   coverRenderer: {fileID: 8322399717891684277}
+  coverMaterial: {fileID: 2100000, guid: f29c8eaa07f296f49831665bd3befc8e, type: 2}
+  loadingMaterial: {fileID: 2100000, guid: 3ec68374e627f004c9bf5614df573e83, type: 2}
   backCoverMaterial: {fileID: 2100000, guid: 9a09fa6be19d0544d853409973285ad9, type: 2}
-  loadingColor: {r: 0.12, g: 0.12, b: 0.14, a: 1}
 --- !u!1 &2112281241780067725
 GameObject:
   m_ObjectHideFlags: 0
@@ -256,7 +257,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.125, y: 0.2, z: 0.03}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1255167239644761156}
@@ -268,7 +269,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2112281241780067725}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 8457943657237397790, guid: ab91e5345d7bf10409376d3d075c8556, type: 3}
 --- !u!23 &7880824245210124111
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -383,7 +384,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f29c8eaa07f296f49831665bd3befc8e, type: 2}
+  - {fileID: 2100000, guid: 3ec68374e627f004c9bf5614df573e83, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

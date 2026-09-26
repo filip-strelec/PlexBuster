@@ -176,7 +176,8 @@ namespace PlexBuster.Data
 
             var texture = new Texture2D(w, h, TextureFormat.RGBA32, true) { name = item.Title, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
             texture.SetPixels32(pixels);
-            texture.Apply(true, true);
+            texture.Apply(true, false);
+            PosterTextures.Finish(texture);
             return texture;
         }
 

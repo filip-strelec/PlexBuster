@@ -109,7 +109,8 @@ namespace PlexBuster.Data
                 : $"{serverUrl}/photo/:/transcode?width={width}&height={height}&minSize=1&upscale=1&url={Uri.EscapeDataString(thumbPath)}";
 
             var textureParams = DownloadedTextureParams.Default;
-            textureParams.flags = DownloadedTextureFlags.MipmapChain;
+            // Readable so it can be block-compressed below; the CPU copy is dropped afterwards.
+            textureParams.flags = DownloadedTextureFlags.MipmapChain | DownloadedTextureFlags.Readable;
             using var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET, new DownloadHandlerTexture(textureParams), null);
             await SendAsync(request, cached ? cacheFile : thumbPath, ct, authenticate: !cached);
 
@@ -119,6 +120,7 @@ namespace PlexBuster.Data
             texture.name = thumbPath;
             texture.wrapMode = TextureWrapMode.Clamp;
             texture.anisoLevel = 4;
+            PosterTextures.Finish(texture);
             return texture;
         }
 

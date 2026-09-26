@@ -28,6 +28,8 @@ namespace PlexBuster.Store
         [Header("Graybox")]
         [SerializeField] bool buildGraybox = true;
         [SerializeField] Material frameMaterial;
+        [SerializeField, Tooltip("Sides, top and plinth; falls back to the frame material.")]
+        Material accentMaterial;
 
         readonly List<VhsTape> tapes = new();
         Transform tapeRoot;
@@ -44,11 +46,12 @@ namespace PlexBuster.Store
         // Built in Start rather than Awake so units created from code can be configured first.
         void Start() => EnsureBuilt();
 
-        public void Configure(int columns, int rows, Material frameMaterial)
+        public void Configure(int columns, int rows, Material frameMaterial, Material accentMaterial = null)
         {
             this.columns = columns;
             this.rows = rows;
             this.frameMaterial = frameMaterial;
+            this.accentMaterial = accentMaterial;
         }
 
         public void EnsureBuilt()
@@ -114,11 +117,12 @@ namespace PlexBuster.Store
             frame.SetParent(transform, false);
 
             var innerWidth = Width - 2 * SideThickness;
+            var accent = accentMaterial != null ? accentMaterial : frameMaterial;
             Box(frame, "Back", new Vector3(0, Height * 0.5f, -Depth + 0.01f), new Vector3(Width, Height, 0.02f));
-            Box(frame, "Base", new Vector3(0, baseHeight * 0.5f, -Depth * 0.5f), new Vector3(Width, baseHeight, Depth));
+            Box(frame, "Base", new Vector3(0, baseHeight * 0.5f, -Depth * 0.5f), new Vector3(Width, baseHeight, Depth), accent);
             for (var side = -1; side <= 1; side += 2)
                 Box(frame, "Side", new Vector3(side * (Width - SideThickness) * 0.5f, Height * 0.5f, -Depth * 0.5f),
-                    new Vector3(SideThickness, Height, Depth));
+                    new Vector3(SideThickness, Height, Depth), accent);
 
             for (var row = 0; row < rows; row++)
             {
@@ -128,10 +132,10 @@ namespace PlexBuster.Store
                         new Vector3(innerWidth, BoardThickness, Depth));
                 Box(frame, "Lip", new Vector3(0, boardTop + 0.0175f, -0.03f), new Vector3(innerWidth, 0.035f, 0.015f));
             }
-            Box(frame, "Top", new Vector3(0, Height + 0.01f, -Depth * 0.5f), new Vector3(Width, 0.02f, Depth));
+            Box(frame, "Top", new Vector3(0, Height + 0.01f, -Depth * 0.5f), new Vector3(Width, 0.02f, Depth), accent);
         }
 
-        void Box(Transform parent, string name, Vector3 centre, Vector3 size) =>
-            Signage.Box(parent, name, centre, size, frameMaterial);
+        void Box(Transform parent, string name, Vector3 centre, Vector3 size, Material material = null) =>
+            Signage.Box(parent, name, centre, size, material != null ? material : frameMaterial);
     }
 }

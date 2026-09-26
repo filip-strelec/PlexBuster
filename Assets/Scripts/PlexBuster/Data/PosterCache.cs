@@ -8,19 +8,32 @@ using Object = UnityEngine.Object;
 namespace PlexBuster.Data
 {
     /// <summary>
-    /// Reference-counted poster textures. Every <see cref="AcquireAsync"/> must be paired with a
-    /// <see cref="Release"/>. Unused posters stay in memory up to a limit so revisiting a room is instant;
+    /// Reference-counted cover materials, one per poster. Every <see cref="AcquireCoverAsync"/> must be paired
+    /// with a <see cref="Release"/>. Unused posters stay in memory up to a limit so revisiting a room is instant;
     /// loads nobody wants any more are cancelled.
     /// </summary>
+    /// <remarks>
+    /// A material per poster (rather than one material plus a per-renderer property block) keeps the covers
+    /// compatible with URP's SRP Batcher, which matters with thousands of tapes in a room.
+    /// </remarks>
     public class PosterCache
     {
+        static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+
         class Entry
         {
             public int Refs;
-            public Task<Texture2D> Load;
+            public Task<Material> Load;
             public Texture2D Texture;
+            public Material Material;
             public CancellationTokenSource Cancel;
             public LinkedListNode<string> UnusedNode;
+
+            public void Destroy()
+            {
+                if (Material != null) Object.Destroy(Material);
+                if (Texture != null) Object.Destroy(Texture);
+            }
         }
 
         readonly ILibrarySource source;
@@ -36,8 +49,9 @@ namespace PlexBuster.Data
 
         public int LoadedCount => entries.Count;
 
-        /// <returns>The poster, or null if it failed to load or was released before it finished.</returns>
-        public async Task<Texture2D> AcquireAsync(LibraryItem item)
+        /// <param name="template">Material the cover is made from; the poster becomes its base map.</param>
+        /// <returns>The cover material, or null if the poster failed to load or was released before it finished.</returns>
+        public async Task<Material> AcquireCoverAsync(LibraryItem item, Material template)
         {
             var key = item.PosterPath;
             if (string.IsNullOrEmpty(key)) return null;
@@ -46,7 +60,7 @@ namespace PlexBuster.Data
             {
                 entry = new Entry { Cancel = new CancellationTokenSource() };
                 entries[key] = entry;
-                entry.Load = LoadAsync(item, entry);
+                entry.Load = LoadAsync(item, entry, template);
             }
             else if (entry.UnusedNode != null)
             {
@@ -64,7 +78,7 @@ namespace PlexBuster.Data
             if (string.IsNullOrEmpty(key) || !entries.TryGetValue(key, out var entry)) return;
             if (--entry.Refs > 0) return;
 
-            if (entry.Texture == null)
+            if (entry.Material == null)
             {
                 // Still loading (or failed): nobody needs it any more.
                 entry.Cancel.Cancel();
@@ -77,7 +91,7 @@ namespace PlexBuster.Data
             {
                 var oldest = unused.First.Value;
                 unused.RemoveFirst();
-                Object.Destroy(entries[oldest].Texture);
+                entries[oldest].Destroy();
                 entries.Remove(oldest);
             }
         }
@@ -87,24 +101,26 @@ namespace PlexBuster.Data
             foreach (var entry in entries.Values)
             {
                 entry.Cancel.Cancel();
-                if (entry.Texture != null) Object.Destroy(entry.Texture);
+                entry.Destroy();
             }
             entries.Clear();
             unused.Clear();
         }
 
-        async Task<Texture2D> LoadAsync(LibraryItem item, Entry entry)
+        async Task<Material> LoadAsync(LibraryItem item, Entry entry, Material template)
         {
             try
             {
                 var texture = await source.LoadPosterAsync(item, entry.Cancel.Token);
-                if (entry.Cancel.IsCancellationRequested)
+                if (entry.Cancel.IsCancellationRequested || texture == null)
                 {
                     if (texture != null) Object.Destroy(texture);
                     return null;
                 }
                 entry.Texture = texture;
-                return texture;
+                entry.Material = new Material(template) { name = $"Cover: {item.Title}" };
+                entry.Material.SetTexture(BaseMapId, texture);
+                return entry.Material;
             }
             catch (OperationCanceledException)
             {

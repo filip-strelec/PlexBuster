@@ -14,19 +14,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlexBuster.Store.StoreTheme
   tapePrefab: {fileID: 4288798053590516774, guid: f7f054a3584d49f42bc2ffcba927c899, type: 3}
   shelfMaterial: {fileID: 2100000, guid: 12aef04de39b88249a4b8016fa8d2701, type: 2}
+  shelfAccentMaterial: {fileID: 2100000, guid: 8b5ef83493310304fad78cf2147640a7, type: 2}
   floorMaterial: {fileID: 2100000, guid: 15451d212c06ba14e8deca18a6a9738a, type: 2}
   wallMaterial: {fileID: 2100000, guid: 3005d455c73aaa24eadff0e661102458, type: 2}
+  wallBandMaterial: {fileID: 2100000, guid: f61c3841357bc6049ad59c94fbe93d39, type: 2}
   ceilingMaterial: {fileID: 2100000, guid: a248481be920001488fadfdb45888021, type: 2}
   lightPanelMaterial: {fileID: 2100000, guid: 187a613cb63236847b6b6a0f9aa1a5f0, type: 2}
   doorFrameMaterial: {fileID: 2100000, guid: b9d2a2b99a02861469892f56c8562d4f, type: 2}
   doorwayMaterial: {fileID: 2100000, guid: 6120c554ec6530943947e31f3687db8b, type: 2}
   fadeMaterial: {fileID: 2100000, guid: c1a26e03843eecf4596ed75a75f87b8a, type: 2}
-  signColor: {r: 1, g: 0.8, b: 0.1, a: 1}
+  floorTileMeters: 2
+  ceilingTileMeters: 0.6
+  signColor: {r: 1, g: 1, b: 1, a: 1}
   labelColor: {r: 1, g: 0.85, b: 0.3, a: 1}
-  exitColor: {r: 0.9, g: 0.15, b: 0.1, a: 1}
+  exitColor: {r: 1, g: 1, b: 1, a: 1}
+  signTextMaterial: {fileID: 2100000, guid: 0434ea0de06b8b14db1a755eec19f15a, type: 2}
+  exitTextMaterial: {fileID: 2100000, guid: 596da849b5c3502488ab2089a895fb65, type: 2}
   wallHeight: 3
   lightColor: {r: 1, g: 0.97, b: 0.9, a: 1}
   lightIntensity: 1.4
   lightRange: 7
   lightSpacing: 4
+  lightDrop: 0.8
   tapesPerFrame: 24

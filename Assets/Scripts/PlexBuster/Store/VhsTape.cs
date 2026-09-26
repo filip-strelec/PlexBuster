@@ -8,14 +8,13 @@ namespace PlexBuster.Store
     [RequireComponent(typeof(TapeGrabInteractable))]
     public class VhsTape : MonoBehaviour
     {
-        static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-
         [SerializeField] Renderer coverRenderer;
+        [SerializeField, Tooltip("Template for cover materials; each poster gets its own copy with the poster as base map.")]
+        Material coverMaterial;
+        [SerializeField, Tooltip("Shown while the poster loads, or when there is none.")]
+        Material loadingMaterial;
         [SerializeField] Material backCoverMaterial;
-        [SerializeField] Color loadingColor = new(0.12f, 0.12f, 0.14f);
 
-        MaterialPropertyBlock block;
         PosterCache posters;
         BackCover backCover;
 
@@ -27,7 +26,6 @@ namespace PlexBuster.Store
             Grab = GetComponent<TapeGrabInteractable>();
             Grab.selectEntered.AddListener(OnGrabbed);
             Grab.selectExited.AddListener(OnReleased);
-            block = new MaterialPropertyBlock();
             ShowCover(null);
         }
 
@@ -42,9 +40,9 @@ namespace PlexBuster.Store
             posters = cache;
             name = $"Tape: {item.Title} ({item.Year})";
 
-            var texture = await cache.AcquireAsync(item);
+            var cover = await cache.AcquireCoverAsync(item, coverMaterial);
             // The tape may have been destroyed or rebound while the poster loaded.
-            if (this != null && Item == item) ShowCover(texture);
+            if (this != null && Item == item) ShowCover(cover);
         }
 
         public void Unbind()
@@ -71,12 +69,6 @@ namespace PlexBuster.Store
             backCover = null;
         }
 
-        void ShowCover(Texture texture)
-        {
-            coverRenderer.GetPropertyBlock(block);
-            block.SetTexture(BaseMapId, texture != null ? texture : Texture2D.whiteTexture);
-            block.SetColor(BaseColorId, texture != null ? Color.white : loadingColor);
-            coverRenderer.SetPropertyBlock(block);
-        }
+        void ShowCover(Material cover) => coverRenderer.sharedMaterial = cover != null ? cover : loadingMaterial;
     }
 }
