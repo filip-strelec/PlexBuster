@@ -28,8 +28,8 @@ namespace PlexBuster.Data
         readonly PlexClient client;
         readonly int posterWidth;
         readonly int posterHeight;
-        readonly List<(string Id, MediaKind Kind, string Title)> sections = new();
-        readonly Dictionary<FilterType, IReadOnlyList<FilterValue>> filterCache = new();
+        readonly List<LibrarySection> sections = new();
+        readonly Dictionary<(FilterType, string), IReadOnlyList<FilterValue>> filterCache = new();
 
         public PlexLibrarySource(PlexClient client, int posterWidth = 256, int posterHeight = 384)
         {
@@ -39,6 +39,7 @@ namespace PlexBuster.Data
         }
 
         public string Name => "Plex";
+        public IReadOnlyList<LibrarySection> Sections => sections;
 
         public async Task InitializeAsync(CancellationToken ct)
         {
@@ -46,20 +47,21 @@ namespace PlexBuster.Data
             var container = await client.GetAsync("/library/sections", ct);
             foreach (var d in container.Directory ?? new List<PlexDirectory>())
             {
-                if (d.type == "movie") sections.Add((d.key, MediaKind.Movie, d.title));
-                else if (d.type == "show") sections.Add((d.key, MediaKind.Show, d.title));
+                if (d.type == "movie") sections.Add(new LibrarySection { Id = d.key, Title = d.title, Kind = MediaKind.Movie });
+                else if (d.type == "show") sections.Add(new LibrarySection { Id = d.key, Title = d.title, Kind = MediaKind.Show });
             }
-            Debug.Log($"[Plex] Sections: {string.Join(", ", sections.Select(s => $"{s.Title} ({s.Kind})"))}");
+            Debug.Log($"[Plex] Sections: {string.Join(", ", sections)}");
         }
 
-        public async Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, CancellationToken ct)
+        public async Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, string sectionId, CancellationToken ct)
         {
-            if (filterCache.TryGetValue(type, out var cached)) return cached;
+            if (filterCache.TryGetValue((type, sectionId), out var cached)) return cached;
             if (!FilterEndpoints.TryGetValue(type, out var endpoint)) return Array.Empty<FilterValue>();
 
             var merged = new Dictionary<string, FilterValue>(StringComparer.OrdinalIgnoreCase);
             foreach (var section in sections)
             {
+                if (sectionId != null && section.Id != sectionId) continue;
                 var container = await client.GetAsync($"/library/sections/{section.Id}/{endpoint}", ct);
                 foreach (var d in container.Directory ?? new List<PlexDirectory>())
                 {
@@ -73,8 +75,8 @@ namespace PlexBuster.Data
                 }
             }
 
-            var values = merged.Values.OrderBy(v => v.Title, StringComparer.OrdinalIgnoreCase).ToList();
-            filterCache[type] = values;
+            var values = merged.Values.OrderBy(v => v.Title, StringComparer.InvariantCultureIgnoreCase).ToList();
+            filterCache[(type, sectionId)] = values;
             return values;
         }
 
@@ -83,6 +85,7 @@ namespace PlexBuster.Data
             var items = new List<LibraryItem>();
             foreach (var section in sections)
             {
+                if (query.SectionId != null && section.Id != query.SectionId) continue;
                 if (section.Kind == MediaKind.Movie ? !query.IncludeMovies : !query.IncludeShows) continue;
 
                 string path;
@@ -102,7 +105,7 @@ namespace PlexBuster.Data
                 // Per-section limits are only safe when the server already sorts the way we will.
                 var sectionLimit = query.Filter == FilterType.RecentlyAdded ? query.Limit : 0;
                 foreach (var m in await client.GetAllItemsAsync(path, ct, sectionLimit))
-                    items.Add(ToItem(m, section.Kind));
+                    items.Add(ToItem(m, section));
             }
 
             LibrarySorting.Apply(items, query.Sort);
@@ -113,10 +116,11 @@ namespace PlexBuster.Data
         public Task<Texture2D> LoadPosterAsync(LibraryItem item, CancellationToken ct) =>
             client.GetPosterAsync(item.PosterPath, posterWidth, posterHeight, ct);
 
-        static LibraryItem ToItem(PlexMetadata m, MediaKind kind) => new()
+        static LibraryItem ToItem(PlexMetadata m, LibrarySection section) => new()
         {
             Id = m.ratingKey,
-            Kind = kind,
+            SectionId = section.Id,
+            Kind = section.Kind,
             Title = m.title,
             SortTitle = m.titleSort,
             Year = m.year,
@@ -128,8 +132,8 @@ namespace PlexBuster.Data
             AudienceRating = m.audienceRating,
             DurationMs = m.duration,
             AddedAt = m.addedAt,
-            SeasonCount = kind == MediaKind.Show ? m.childCount : 0,
-            EpisodeCount = kind == MediaKind.Show ? m.leafCount : 0,
+            SeasonCount = section.Kind == MediaKind.Show ? m.childCount : 0,
+            EpisodeCount = section.Kind == MediaKind.Show ? m.leafCount : 0,
             Genres = Tags(m.Genre),
             Directors = Tags(m.Director),
             // Listings only carry the top few cast members; enough for the back of the box.

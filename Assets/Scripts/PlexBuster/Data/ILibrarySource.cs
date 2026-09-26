@@ -10,10 +10,16 @@ namespace PlexBuster.Data
     {
         string Name { get; }
 
+        /// <summary>The movie and TV sections, available after <see cref="InitializeAsync"/>.</summary>
+        IReadOnlyList<LibrarySection> Sections { get; }
+
         Task InitializeAsync(CancellationToken ct);
 
-        /// <summary>All values of a filter (every genre, actor, decade...), sorted by title.</summary>
-        Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, CancellationToken ct);
+        /// <summary>
+        /// All values of a filter (every genre, actor, decade...) in one section, or merged across
+        /// every section when <paramref name="sectionId"/> is null. Sorted by title.
+        /// </summary>
+        Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, string sectionId, CancellationToken ct);
 
         Task<IReadOnlyList<LibraryItem>> QueryAsync(LibraryQuery query, CancellationToken ct);
 

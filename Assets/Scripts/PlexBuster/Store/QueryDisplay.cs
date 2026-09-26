@@ -47,7 +47,7 @@ namespace PlexBuster.Store
                 };
                 if (filter != FilterType.All && filter != FilterType.RecentlyAdded)
                 {
-                    var values = await services.Library.GetFilterValuesAsync(filter, services.LifetimeToken);
+                    var values = await services.Library.GetFilterValuesAsync(filter, null, services.LifetimeToken);
                     query.Value = values.FirstOrDefault(v => string.Equals(v.Title, value, StringComparison.OrdinalIgnoreCase))
                                   ?? values.FirstOrDefault();
                     if (query.Value == null)

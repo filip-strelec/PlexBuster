@@ -12,7 +12,12 @@ namespace PlexBuster.Data
     /// </summary>
     public class MockLibrarySource : ILibrarySource
     {
-        const string SectionId = "mock";
+        static readonly LibrarySection[] MockSections =
+        {
+            new() { Id = "mock-movies", Title = "Movies", Kind = MediaKind.Movie },
+            new() { Id = "mock-kids", Title = "Kids", Kind = MediaKind.Movie },
+            new() { Id = "mock-tv", Title = "TV Shows", Kind = MediaKind.Show },
+        };
 
         static readonly string[] GenreNames =
         {
@@ -57,6 +62,7 @@ namespace PlexBuster.Data
         }
 
         public string Name => "Mock";
+        public IReadOnlyList<LibrarySection> Sections => MockSections;
 
         public Task InitializeAsync(CancellationToken ct)
         {
@@ -71,10 +77,13 @@ namespace PlexBuster.Data
                 var isShow = i >= movieCount;
                 var title = Title(rng);
                 var year = rng.Next(1972, 2025);
+                // Most movies go to "Movies", the last fifth to "Kids"; shows to "TV Shows".
+                var section = isShow ? MockSections[2] : i < movieCount * 4 / 5 ? MockSections[0] : MockSections[1];
                 items.Add(new LibraryItem
                 {
                     Id = $"mock-{i}",
-                    Kind = isShow ? MediaKind.Show : MediaKind.Movie,
+                    SectionId = section.Id,
+                    Kind = section.Kind,
                     Title = title,
                     SortTitle = title.StartsWith("The ") ? title.Substring(4) : title,
                     Year = year,
@@ -98,44 +107,42 @@ namespace PlexBuster.Data
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, CancellationToken ct)
+        public Task<IReadOnlyList<FilterValue>> GetFilterValuesAsync(FilterType type, string sectionId, CancellationToken ct)
         {
-            IEnumerable<string> titles = type switch
+            // Like Plex: a value exists in a section when at least one of its items has it.
+            var merged = new SortedDictionary<string, FilterValue>(StringComparer.InvariantCultureIgnoreCase);
+            foreach (var item in items)
             {
-                FilterType.Genre => GenreNames,
-                FilterType.Actor => actors,
-                FilterType.Director => directors,
-                FilterType.Decade => items.Select(i => $"{i.Year / 10 * 10}s").Distinct(),
-                FilterType.Year => items.Select(i => i.Year.ToString()).Distinct(),
-                FilterType.ContentRating => items.Select(i => i.ContentRating).Distinct(),
-                FilterType.Studio => items.Select(i => i.Studio).Distinct(),
-                _ => Enumerable.Empty<string>(),
-            };
-
-            IReadOnlyList<FilterValue> values = titles.OrderBy(t => t).Select(t =>
-            {
-                var value = new FilterValue { Type = type, Title = t };
-                value.KeysBySection[SectionId] = t;
-                return value;
-            }).ToList();
-            return Task.FromResult(values);
+                if (sectionId != null && item.SectionId != sectionId) continue;
+                foreach (var title in ValuesOf(item, type))
+                {
+                    if (!merged.TryGetValue(title, out var value))
+                        merged[title] = value = new FilterValue { Type = type, Title = title };
+                    value.KeysBySection[item.SectionId] = title;
+                }
+            }
+            return Task.FromResult<IReadOnlyList<FilterValue>>(merged.Values.ToList());
         }
+
+        static IEnumerable<string> ValuesOf(LibraryItem item, FilterType type) => type switch
+        {
+            FilterType.Genre => item.Genres,
+            FilterType.Actor => item.Actors,
+            FilterType.Director => item.Directors,
+            FilterType.Decade => new[] { $"{item.Year / 10 * 10}s" },
+            FilterType.Year => new[] { item.Year.ToString() },
+            FilterType.ContentRating => new[] { item.ContentRating },
+            FilterType.Studio => new[] { item.Studio },
+            _ => Array.Empty<string>(),
+        };
 
         public Task<IReadOnlyList<LibraryItem>> QueryAsync(LibraryQuery query, CancellationToken ct)
         {
             var title = query.Value?.Title;
-            var result = items.Where(i => (i.Kind == MediaKind.Movie ? query.IncludeMovies : query.IncludeShows) && query.Filter switch
-            {
-                FilterType.Genre => i.Genres.Contains(title),
-                FilterType.Actor => i.Actors.Contains(title),
-                FilterType.Director => i.Directors.Contains(title),
-                FilterType.Decade => $"{i.Year / 10 * 10}s" == title,
-                FilterType.Year => i.Year.ToString() == title,
-                FilterType.ContentRating => i.ContentRating == title,
-                FilterType.Studio => i.Studio == title,
-                FilterType.Collection => false,
-                _ => true,
-            }).ToList();
+            var result = items.Where(i =>
+                (query.SectionId == null || i.SectionId == query.SectionId) &&
+                (i.Kind == MediaKind.Movie ? query.IncludeMovies : query.IncludeShows) &&
+                (query.Filter is FilterType.All or FilterType.RecentlyAdded || ValuesOf(i, query.Filter).Contains(title))).ToList();
 
             LibrarySorting.Apply(result, query.Filter == FilterType.RecentlyAdded ? SortOrder.RecentlyAdded : query.Sort);
             if (query.Limit > 0 && result.Count > query.Limit) result.RemoveRange(query.Limit, result.Count - query.Limit);

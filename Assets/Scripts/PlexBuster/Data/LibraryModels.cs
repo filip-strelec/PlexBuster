@@ -9,11 +9,22 @@ namespace PlexBuster.Data
 
     public enum SortOrder { Title, YearNewest, YearOldest, Rating, RecentlyAdded }
 
+    /// <summary>A library section (a Plex library such as "Movies" or "TV Shows"); each is a department of the store.</summary>
+    public class LibrarySection
+    {
+        public string Id;
+        public string Title;
+        public MediaKind Kind;
+
+        public override string ToString() => $"{Title} ({Kind})";
+    }
+
     /// <summary>A movie or TV show, independent of which source it came from.</summary>
     [Serializable]
     public class LibraryItem
     {
         public string Id;
+        public string SectionId;
         public MediaKind Kind;
         public string Title;
         public string SortTitle;
@@ -54,15 +65,23 @@ namespace PlexBuster.Data
     {
         public FilterType Filter = FilterType.All;
         public FilterValue Value;   // required for every filter except All and RecentlyAdded
+        public string SectionId;    // null = every section
         public bool IncludeMovies = true;
         public bool IncludeShows = true;
         public SortOrder Sort = SortOrder.Title;
         public int Limit;           // 0 = no limit
 
-        public static LibraryQuery For(FilterValue value, SortOrder sort = SortOrder.Title) =>
-            new() { Filter = value.Type, Value = value, Sort = sort };
+        public static LibraryQuery For(FilterValue value, string sectionId = null, SortOrder sort = SortOrder.Title) =>
+            new() { Filter = value.Type, Value = value, SectionId = sectionId, Sort = sort };
 
-        public override string ToString() => Value != null ? $"{Value} ({Sort})" : $"{Filter} ({Sort})";
+        public static LibraryQuery AllOf(string sectionId, SortOrder sort = SortOrder.Title) =>
+            new() { Filter = FilterType.All, SectionId = sectionId, Sort = sort };
+
+        public override string ToString()
+        {
+            var what = Value != null ? Value.ToString() : Filter.ToString();
+            return SectionId != null ? $"{what} in section {SectionId} ({Sort})" : $"{what} ({Sort})";
+        }
     }
 
     public static class LibrarySorting
@@ -70,7 +89,7 @@ namespace PlexBuster.Data
         public static void Apply(List<LibraryItem> items, SortOrder order)
         {
             Comparison<LibraryItem> byTitle = (a, b) =>
-                string.Compare(a.DisplaySortTitle, b.DisplaySortTitle, StringComparison.OrdinalIgnoreCase);
+                string.Compare(a.DisplaySortTitle, b.DisplaySortTitle, StringComparison.InvariantCultureIgnoreCase);
 
             items.Sort(order switch
             {

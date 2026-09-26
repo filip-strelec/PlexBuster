@@ -22,8 +22,8 @@ namespace PlexBuster.Store
         public const int Columns = 8;
         public const int WallRows = 6;
         public const int IslandRows = 5;   // islands are lower so you can see across the room
-        public const float DoorWidth = 1.6f;
-        public const float DoorHeight = 2.4f;
+        public const float DoorWidth = StoreShell.DoorWidth;
+        public const float DoorHeight = StoreShell.DoorHeight;
 
         static readonly float UnitWidth = ShelfUnit.WidthFor(Columns) + 0.02f;
         const float ShelfDepth = ShelfUnit.Depth;
