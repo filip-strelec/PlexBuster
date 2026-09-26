@@ -118,10 +118,14 @@ namespace PlexBuster.Store
             var frame = new GameObject("Frame").transform;
             frame.SetParent(transform, false);
 
+            // Everything between the sides fits exactly between them. Where two boxes overlap, faces pointing the same
+            // way in one plane flicker (z-fighting): a full-width back board showed white through the sides' outer
+            // faces, and boards running into the sides showed through their front edges. Faces pointing opposite ways,
+            // like a board's end against a side's inner face, are fine.
             var innerWidth = Width - 2 * SideThickness;
             var accent = accentMaterial != null ? accentMaterial : frameMaterial;
-            Box(frame, "Back", new Vector3(0, Height * 0.5f, -Depth + 0.01f), new Vector3(Width, Height, 0.02f));
-            Box(frame, "Base", new Vector3(0, baseHeight * 0.5f, -Depth * 0.5f), new Vector3(Width, baseHeight, Depth), accent);
+            Box(frame, "Back", new Vector3(0, (baseHeight + Height) * 0.5f, -Depth + 0.01f), new Vector3(innerWidth, Height - baseHeight, 0.02f));
+            Box(frame, "Base", new Vector3(0, baseHeight * 0.5f, -Depth * 0.5f), new Vector3(innerWidth, baseHeight, Depth), accent);
             for (var side = -1; side <= 1; side += 2)
                 Box(frame, "Side", new Vector3(side * (Width - SideThickness) * 0.5f, Height * 0.5f, -Depth * 0.5f),
                     new Vector3(SideThickness, Height, Depth), accent);

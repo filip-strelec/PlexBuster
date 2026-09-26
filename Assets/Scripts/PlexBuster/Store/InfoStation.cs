@@ -63,9 +63,11 @@ namespace PlexBuster.Store
 
         void Update()
         {
+            // Only ask for a tape while there's nothing to show: a basket on the pad fills the hologram too.
+            var waiting = slotTape == null && padBasket == null;
             var pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 3f);
-            slotGlow.SetColor(BaseColorId, Holo * (slotTape == null ? 1.5f + pulse : 1f));
-            slotHint.gameObject.SetActive(slotTape == null);
+            slotGlow.SetColor(BaseColorId, Holo * (waiting ? 1.5f + pulse : 1f));
+            slotHint.gameObject.SetActive(waiting);
             slotHint.transform.localPosition = SlotPosition + new Vector3(0, 0.33f + 0.015f * Mathf.Sin(Time.time * 2f), 0);
 
             if (Time.unscaledTime < nextRefresh) return;
