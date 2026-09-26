@@ -20,6 +20,15 @@ namespace PlexBuster.Store
 
         public LibraryItem Item { get; private set; }
         public TapeGrabInteractable Grab { get; private set; }
+        public Material CoverTemplate => coverMaterial;
+        public Material LoadingMaterial => loadingMaterial;
+
+        /// <summary>Hides a shelved tape that doesn't match the search; tapes in hand or on the floor stay.</summary>
+        public void SetFilteredOut(bool filteredOut)
+        {
+            if (filteredOut && (Grab.isSelected || !Grab.IsOnShelf)) return;
+            gameObject.SetActive(!filteredOut);
+        }
 
         void Awake()
         {

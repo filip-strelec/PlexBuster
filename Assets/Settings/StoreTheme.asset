@@ -22,6 +22,7 @@ MonoBehaviour:
   lightPanelMaterial: {fileID: 2100000, guid: 187a613cb63236847b6b6a0f9aa1a5f0, type: 2}
   doorFrameMaterial: {fileID: 2100000, guid: b9d2a2b99a02861469892f56c8562d4f, type: 2}
   doorwayMaterial: {fileID: 2100000, guid: 6120c554ec6530943947e31f3687db8b, type: 2}
+  beadCurtainMaterial: {fileID: 2100000, guid: 239f0f3a8ee5e254ca7f5e636e82217f, type: 2}
   fadeMaterial: {fileID: 2100000, guid: c1a26e03843eecf4596ed75a75f87b8a, type: 2}
   floorTileMeters: 2
   ceilingTileMeters: 0.6

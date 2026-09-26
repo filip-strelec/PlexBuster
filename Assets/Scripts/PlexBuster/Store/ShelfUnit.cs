@@ -35,6 +35,7 @@ namespace PlexBuster.Store
         Transform tapeRoot;
         TextMeshPro label;
 
+        public IReadOnlyList<VhsTape> Tapes => tapes;
         public int Capacity => columns * rows;
         public int Count => tapes.Count;
         public bool IsFull => tapes.Count >= Capacity;

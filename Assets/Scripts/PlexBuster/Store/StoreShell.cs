@@ -92,7 +92,7 @@ namespace PlexBuster.Store
             var vestibuleFloor = Floor(parent, new Vector3(0, -0.05f, z), new Vector3(outer, 0.1f, VestibuleDepth), theme.doorwayMaterial);
             vestibuleFloor.name = "Vestibule_Floor";
             Signage.Box(parent, "Vestibule_Ceiling", new Vector3(0, DoorHeight + 0.05f, z), new Vector3(outer, 0.1f, VestibuleDepth), theme.doorwayMaterial);
-            Signage.Box(parent, "Vestibule_End", new Vector3(0, DoorHeight / 2, z - VestibuleDepth / 2), new Vector3(outer, DoorHeight, 0.1f), theme.doorwayMaterial);
+            Signage.Box(parent, "Vestibule_End", new Vector3(0, DoorHeight / 2, z - VestibuleDepth / 2), new Vector3(outer, DoorHeight, 0.1f), theme.beadCurtainMaterial != null ? theme.beadCurtainMaterial : theme.doorwayMaterial);
             for (var side = -1; side <= 1; side += 2)
                 Signage.Box(parent, "Vestibule_Side", new Vector3(side * (DoorWidth + WallThickness) / 2, DoorHeight / 2, z),
                     new Vector3(WallThickness, DoorHeight, VestibuleDepth), theme.doorwayMaterial);

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PlexBuster.Store
@@ -45,6 +46,54 @@ namespace PlexBuster.Store
 
         /// <summary>Where the player stands after walking in: just inside the door, facing the back wall.</summary>
         public static Pose Entry => new(new Vector3(0, 0, 0.9f), Quaternion.identity);
+
+        /// <summary>
+        /// Centres of wall stretches with no shelves in front of them, spaced for posters of
+        /// <paramref name="width"/>, as (point on the wall at floor level, direction into the room).
+        /// </summary>
+        public List<(Vector3 Position, Vector3 Inward)> PosterSpots(float width, float gap)
+        {
+            var spots = new List<(Vector3, Vector3)>();
+            var half = Width / 2;
+            var inset = ShelfDepth + WallGap;
+            var doorSide = DoorWidth / 2 + DoorMargin + 0.2f;
+
+            // Each wall: line of its shelves, the axis along it, its free span(s), and the inward direction.
+            AddWall(spots, s => Mathf.Abs(s.Position.z - (Depth - inset)) < 0.05f, s => s.Position.x,
+                -half + CornerMargin, half - CornerMargin, x => new Vector3(x, 0, Depth), Vector3.back, width, gap);
+            AddWall(spots, s => Mathf.Abs(s.Position.x - (half - inset)) < 0.05f, s => s.Position.z,
+                CornerMargin, Depth - CornerMargin, z => new Vector3(half, 0, z), Vector3.left, width, gap);
+            AddWall(spots, s => Mathf.Abs(s.Position.x - (-half + inset)) < 0.05f, s => s.Position.z,
+                CornerMargin, Depth - CornerMargin, z => new Vector3(-half, 0, z), Vector3.right, width, gap);
+            for (var side = -1; side <= 1; side += 2)
+            {
+                var sign = side;
+                AddWall(spots, s => Mathf.Abs(s.Position.z - inset) < 0.05f && Mathf.Sign(s.Position.x) == sign, s => Mathf.Abs(s.Position.x),
+                    doorSide, half - CornerMargin, a => new Vector3(sign * a, 0, 0), Vector3.forward, width, gap);
+            }
+            return spots;
+        }
+
+        void AddWall(List<(Vector3, Vector3)> spots, System.Predicate<Shelf> onWall, System.Func<Shelf, float> along,
+            float start, float end, System.Func<float, Vector3> point, Vector3 inward, float width, float gap)
+        {
+            var taken = new List<(float From, float To)>();
+            foreach (var shelf in Shelves)
+                if (onWall(shelf)) taken.Add((along(shelf) - UnitWidth / 2, along(shelf) + UnitWidth / 2));
+            taken.Sort((a, b) => a.From.CompareTo(b.From));
+
+            var cursor = start;
+            foreach (var (from, to) in taken.Append((end, end)))
+            {
+                var freeEnd = Mathf.Min(from, end);
+                var length = freeEnd - cursor;
+                var count = Mathf.FloorToInt((length + gap) / (width + gap));
+                var used = count * width + Mathf.Max(0, count - 1) * gap;
+                for (var i = 0; i < count; i++)
+                    spots.Add((point(cursor + (length - used) / 2 + width / 2 + i * (width + gap)), inward));
+                cursor = Mathf.Max(cursor, to);
+            }
+        }
 
         public static RoomLayout For(int itemCount)
         {

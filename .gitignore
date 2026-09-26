@@ -39,3 +39,7 @@ plex_config.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Unity crash-recovery scene backups
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

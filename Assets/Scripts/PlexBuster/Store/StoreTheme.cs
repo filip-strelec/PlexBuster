@@ -21,6 +21,8 @@ namespace PlexBuster.Store
         public Material lightPanelMaterial;
         public Material doorFrameMaterial;
         public Material doorwayMaterial;
+        [Tooltip("Bead curtain hung in hall doorways and exit vestibules; falls back to the doorway material.")]
+        public Material beadCurtainMaterial;
         public Material fadeMaterial;
 
         [Header("Texture tiling (metres per repeat)")]

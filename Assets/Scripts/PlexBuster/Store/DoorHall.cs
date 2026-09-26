@@ -107,7 +107,7 @@ namespace PlexBuster.Store
             root.SetParent(transform, false);
             root.SetLocalPositionAndRotation(position, facing);
 
-            Signage.Box(root, "Doorway", new Vector3(0, DoorHeight / 2, 0.005f), new Vector3(DoorWidth, DoorHeight, 0.01f), theme.doorwayMaterial);
+            Signage.Box(root, "Doorway", new Vector3(0, DoorHeight / 2, 0.005f), new Vector3(DoorWidth, DoorHeight, 0.01f), theme.beadCurtainMaterial != null ? theme.beadCurtainMaterial : theme.doorwayMaterial);
             Signage.Box(root, "Frame_Top", new Vector3(0, DoorHeight + 0.05f, 0.03f), new Vector3(DoorWidth + 0.2f, 0.1f, 0.06f), theme.doorFrameMaterial);
             for (var side = -1; side <= 1; side += 2)
                 Signage.Box(root, "Frame_Side", new Vector3(side * (DoorWidth + 0.1f) / 2, DoorHeight / 2, 0.03f), new Vector3(0.1f, DoorHeight, 0.06f), theme.doorFrameMaterial);
