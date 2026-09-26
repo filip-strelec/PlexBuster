@@ -57,7 +57,11 @@ namespace PlexBuster.Store
                 pose => EnterRoom($"{genre.Title} · {section.Title}", LibraryQuery.For(genre, section.Id), pose))).ToList();
             var all = new DoorHall.Door($"All {section.Title}", pose => EnterRoom(section.Title, LibraryQuery.AllOf(section.Id), pose));
             Debug.Log($"[Store] Entering {section}: {doors.Count} genre doors");
-            return DoorHall.Build($"Hall: {section.Title}", theme, doors, all, position, Quaternion.identity, withExit: true);
+            var hall = DoorHall.Build($"Hall: {section.Title}", theme, doors, all, position, Quaternion.identity, withExit: true);
+
+            // "Browse by" board on the right wall, just past the entrance, before the first doors.
+            BrowseKiosk.Create(hall.transform, new Vector3(DoorHall.HalfWidth - 0.03f, 1.45f, 1.25f), Vector3.left, section);
+            return hall;
         }, returnPose);
 
         /// <summary>A room holding the result of <paramref name="query"/>.</summary>

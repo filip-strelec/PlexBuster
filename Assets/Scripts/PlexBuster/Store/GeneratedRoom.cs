@@ -15,8 +15,13 @@ namespace PlexBuster.Store
         const float WallThickness = StoreShell.WallThickness;
 
         readonly List<ShelfUnit> shelves = new();
+        List<LibraryItem> items;
+        StoreTheme theme;
+        PosterCache posters;
+        Coroutine filling;
 
         public RoomLayout Layout { get; private set; }
+        public SortOrder Sort { get; private set; }
         public DoorTrigger Exit { get; private set; }
         public Pose EntryPose => new(transform.TransformPoint(RoomLayout.Entry.position), transform.rotation * RoomLayout.Entry.rotation);
 
@@ -25,15 +30,34 @@ namespace PlexBuster.Store
         {
             var room = new GameObject($"Room: {title}").AddComponent<GeneratedRoom>();
             room.transform.position = origin;
+            room.items = new List<LibraryItem>(items);
+            room.Sort = sort;
+            room.theme = theme;
+            room.posters = posters;
             room.Layout = RoomLayout.For(items.Count);
-            room.BuildShell(theme);
-            room.BuildSigns(theme, title, items.Count);
-            room.BuildShelves(theme, items, sort);
-            room.StartCoroutine(room.Fill(items, theme, posters));
+            room.BuildShell();
+            room.BuildSigns(title);
+            room.BuildShelves();
+            if (items.Count > 1)
+                SortPanel.Create(room, room.transform, new Vector3(1.1f, 0, 1.3f), new Vector3(-1, 0, -0.35f), theme);
+            room.filling = room.StartCoroutine(room.Fill());
             return room;
         }
 
-        void BuildShell(StoreTheme theme)
+        /// <summary>Re-shelves the room in a different order. Posters are cached, so this is quick.</summary>
+        public void Resort(SortOrder sort)
+        {
+            if (sort == Sort) return;
+            Sort = sort;
+            LibrarySorting.Apply(items, sort);
+
+            if (filling != null) StopCoroutine(filling);
+            foreach (var unit in shelves) unit.Clear();
+            LabelShelves();
+            filling = StartCoroutine(Fill());
+        }
+
+        void BuildShell()
         {
             var w = Layout.Width;
             var d = Layout.Depth;
@@ -56,7 +80,7 @@ namespace PlexBuster.Store
                 StoreShell.CeilingLight(shell, theme, new Vector3((ix + 0.5f) * w / nx - w / 2, h, (iz + 0.5f) * d / nz));
         }
 
-        void BuildSigns(StoreTheme theme, string title, int itemCount)
+        void BuildSigns(string title)
         {
             var signs = new GameObject("Signs").transform;
             signs.SetParent(transform, false);
@@ -72,17 +96,16 @@ namespace PlexBuster.Store
             titleSign.fontSizeMin = 1f;
             titleSign.fontSizeMax = 5f;
 
-            if (itemCount == 0)
+            if (items.Count == 0)
                 Signage.CreateText(signs, "Empty", new Vector3(0, 1.4f, d - 0.02f), Quaternion.identity, 2f, theme.labelColor,
                     new Vector2(Layout.Width - 1f, 0.5f)).text = "Nothing on the shelves here yet";
         }
 
-        void BuildShelves(StoreTheme theme, IReadOnlyList<LibraryItem> items, SortOrder sort)
+        void BuildShelves()
         {
             var root = new GameObject("Shelves").transform;
             root.SetParent(transform, false);
 
-            var start = 0;
             for (var i = 0; i < Layout.Shelves.Count; i++)
             {
                 var placement = Layout.Shelves[i];
@@ -92,15 +115,23 @@ namespace PlexBuster.Store
                 var unit = go.AddComponent<ShelfUnit>();
                 unit.Configure(RoomLayout.Columns, placement.Rows, theme.shelfMaterial);
                 unit.EnsureBuilt();
-
-                var end = Mathf.Min(start + unit.Capacity, items.Count) - 1;
-                if (end >= start) unit.SetLabel(RangeLabel(items[start], items[end], sort), theme.labelColor);
-                start += unit.Capacity;
                 shelves.Add(unit);
+            }
+            LabelShelves();
+        }
+
+        void LabelShelves()
+        {
+            var start = 0;
+            foreach (var unit in shelves)
+            {
+                var end = Mathf.Min(start + unit.Capacity, items.Count) - 1;
+                unit.SetLabel(end >= start ? RangeLabel(items[start], items[end], Sort) : "", theme.labelColor);
+                start += unit.Capacity;
             }
         }
 
-        IEnumerator Fill(IReadOnlyList<LibraryItem> items, StoreTheme theme, PosterCache posters)
+        IEnumerator Fill()
         {
             var index = 0;
             foreach (var unit in shelves)
@@ -111,6 +142,7 @@ namespace PlexBuster.Store
                     if (index % theme.tapesPerFrame == 0) yield return null;
                 }
             }
+            filling = null;
         }
 
         static string RangeLabel(LibraryItem first, LibraryItem last, SortOrder sort)

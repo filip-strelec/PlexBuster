@@ -27,6 +27,7 @@ namespace PlexBuster.Store
 
         const float WallThickness = StoreShell.WallThickness;
         const float Width = 4f;
+        public const float HalfWidth = Width / 2;
         const float DoorWidth = 1.3f;
         const float DoorHeight = 2.3f;
         const float DoorSpacing = 2.4f;

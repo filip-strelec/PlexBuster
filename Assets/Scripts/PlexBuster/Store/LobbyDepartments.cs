@@ -13,6 +13,8 @@ namespace PlexBuster.Store
     {
         [SerializeField] StoreTheme theme;
         [SerializeField] string signText = "Departments";
+        [SerializeField, Tooltip("Section titles to put first, in this order; the rest follow in library order.")]
+        string[] firstSections = { "Movies", "TV Shows", "exYu" };
 
         async void Start()
         {
@@ -23,13 +25,22 @@ namespace PlexBuster.Store
             try
             {
                 var doors = services.Library.Sections
-                    .Select(section => new DoorHall.Door(section.Title, pose => StoreNavigator.Instance.EnterSection(section, pose)))
+                    .Select((section, index) => (section, index))
+                    .OrderBy(s => Priority(s.section.Title))
+                    .ThenBy(s => s.index)
+                    .Select(s => new DoorHall.Door(s.section.Title, pose => StoreNavigator.Instance.EnterSection(s.section, pose)))
                     .ToList();
                 var hall = DoorHall.Build("Departments", theme, doors, null, transform.position, transform.rotation,
                     withExit: false, entranceSign: signText);
                 hall.transform.SetParent(transform, true);
             }
             catch (OperationCanceledException) { }
+        }
+
+        int Priority(string title)
+        {
+            var i = Array.FindIndex(firstSections, s => string.Equals(s, title, StringComparison.OrdinalIgnoreCase));
+            return i < 0 ? firstSections.Length : i;
         }
     }
 }
