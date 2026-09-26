@@ -43,3 +43,6 @@ Thumbs.db
 # Unity crash-recovery scene backups
 /[Aa]ssets/_Recovery/
 /[Aa]ssets/_Recovery.meta
+
+# Jukebox songs (local, see Assets/Scripts/PlexBuster/Store/MusicFolder.cs)
+/Music/
