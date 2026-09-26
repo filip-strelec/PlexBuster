@@ -82,6 +82,7 @@ namespace PlexBuster.Data
                 items.Add(new LibraryItem
                 {
                     Id = $"mock-{i}",
+                    Guid = i % 13 == 0 ? $"mock://watchlist/{i}" : $"mock://{i}",
                     SectionId = section.Id,
                     Kind = section.Kind,
                     Title = title,
@@ -142,7 +143,9 @@ namespace PlexBuster.Data
             var result = items.Where(i =>
                 (query.SectionId == null || i.SectionId == query.SectionId) &&
                 (i.Kind == MediaKind.Movie ? query.IncludeMovies : query.IncludeShows) &&
-                (query.Filter is FilterType.All or FilterType.RecentlyAdded || ValuesOf(i, query.Filter).Contains(title))).ToList();
+                (query.Filter is FilterType.All or FilterType.RecentlyAdded
+                 || (query.Filter == FilterType.Watchlist && i.Guid.StartsWith("mock://watchlist/"))
+                 || ValuesOf(i, query.Filter).Contains(title))).ToList();
 
             LibrarySorting.Apply(result, query.Filter == FilterType.RecentlyAdded ? SortOrder.RecentlyAdded : query.Sort);
             if (query.Limit > 0 && result.Count > query.Limit) result.RemoveRange(query.Limit, result.Count - query.Limit);

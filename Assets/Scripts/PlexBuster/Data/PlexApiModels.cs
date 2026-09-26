@@ -30,6 +30,7 @@ namespace PlexBuster.Data
     internal class PlexMetadata
     {
         public string ratingKey;
+        public string guid;
         public string type;
         public string title;
         public string titleSort;

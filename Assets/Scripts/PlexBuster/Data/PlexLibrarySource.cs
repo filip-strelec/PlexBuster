@@ -82,6 +82,8 @@ namespace PlexBuster.Data
 
         public async Task<IReadOnlyList<LibraryItem>> QueryAsync(LibraryQuery query, CancellationToken ct)
         {
+            if (query.Filter == FilterType.Watchlist) return await WatchlistAsync(query, ct);
+
             var items = new List<LibraryItem>();
             foreach (var section in sections)
             {
@@ -113,12 +115,43 @@ namespace PlexBuster.Data
             return items;
         }
 
+        /// <summary>
+        /// The account's watchlist (kept on plex.tv, not the server), narrowed to titles this library has.
+        /// Titles are matched by their Plex GUID, so every copy (e.g. original and dubbed) turns up.
+        /// </summary>
+        async Task<IReadOnlyList<LibraryItem>> WatchlistAsync(LibraryQuery query, CancellationToken ct)
+        {
+            const string url = "https://discover.provider.plex.tv/library/sections/watchlist/all";
+            const int pageSize = 100; // plex.tv rejects larger pages from identified clients (X-Plex-Product)
+            var wanted = new HashSet<string>();
+            var total = 0;
+            while (true)
+            {
+                var page = await client.GetAccountAsync($"{url}?X-Plex-Container-Start={total}&X-Plex-Container-Size={pageSize}", ct);
+                var got = page.Metadata?.Count ?? 0;
+                foreach (var m in page.Metadata ?? new List<PlexMetadata>())
+                    if (!string.IsNullOrEmpty(m.guid)) wanted.Add(m.guid);
+                total += got;
+                if (got < pageSize || (page.totalSize > 0 && total >= page.totalSize)) break;
+            }
+
+            var all = await QueryAsync(new LibraryQuery
+            {
+                SectionId = query.SectionId, IncludeMovies = query.IncludeMovies, IncludeShows = query.IncludeShows, Sort = query.Sort,
+            }, ct);
+            var items = all.Where(i => i.Guid != null && wanted.Contains(i.Guid)).ToList();
+            Debug.Log($"[Plex] Watchlist: {total} titles, {items.Select(i => i.Guid).Distinct().Count()} of them in this library");
+            if (query.Limit > 0 && items.Count > query.Limit) items.RemoveRange(query.Limit, items.Count - query.Limit);
+            return items;
+        }
+
         public Task<Texture2D> LoadPosterAsync(LibraryItem item, CancellationToken ct) =>
             client.GetPosterAsync(item.PosterPath, posterWidth, posterHeight, ct);
 
         static LibraryItem ToItem(PlexMetadata m, LibrarySection section) => new()
         {
             Id = m.ratingKey,
+            Guid = m.guid,
             SectionId = section.Id,
             Kind = section.Kind,
             Title = m.title,

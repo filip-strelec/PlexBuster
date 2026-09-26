@@ -70,14 +70,20 @@ namespace PlexBuster.Store
             var shell = new GameObject("Shell").transform;
             shell.SetParent(transform, false);
 
-            StoreShell.Floor(shell, new Vector3(0, -0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme.floorMaterial, theme.floorTileMeters);
-            StoreShell.Ceiling(shell, new Vector3(0, h + 0.05f, length / 2), new Vector3(Width + 2 * WallThickness, 0.1f, length), theme);
+            // A corridor opening straight onto the lobby starts past the lobby's wall; otherwise its floor and
+            // ceiling would overlap the lobby's (same height, different tiling) and flicker.
+            var start = withExit ? 0f : WallThickness;
+            var run = length - start;
+            var middle = (start + length) / 2;
+
+            StoreShell.Floor(shell, new Vector3(0, -0.05f, middle), new Vector3(Width + 2 * WallThickness, 0.1f, run), theme.floorMaterial, theme.floorTileMeters);
+            StoreShell.Ceiling(shell, new Vector3(0, h + 0.05f, middle), new Vector3(Width + 2 * WallThickness, 0.1f, run), theme);
             Signage.Box(shell, "Wall_End", new Vector3(0, h / 2, length + WallThickness / 2), new Vector3(Width + 2 * WallThickness, h, WallThickness), theme.wallMaterial);
             StoreShell.WallBand(shell, theme, new Vector3(-Width / 2, 0, length), new Vector3(Width / 2, 0, length), Vector3.back, h);
             for (var side = -1; side <= 1; side += 2)
             {
-                Signage.Box(shell, "Wall_Side", new Vector3(side * (Width + WallThickness) / 2, h / 2, length / 2), new Vector3(WallThickness, h, length), theme.wallMaterial);
-                StoreShell.WallBand(shell, theme, new Vector3(side * Width / 2, 0, 0), new Vector3(side * Width / 2, 0, length), Vector3.left * side, h);
+                Signage.Box(shell, "Wall_Side", new Vector3(side * (Width + WallThickness) / 2, h / 2, middle), new Vector3(WallThickness, h, run), theme.wallMaterial);
+                StoreShell.WallBand(shell, theme, new Vector3(side * Width / 2, 0, start), new Vector3(side * Width / 2, 0, length), Vector3.left * side, h);
             }
             if (withExit) Exit = StoreShell.FrontWallWithExit(shell, theme, Width + 2 * WallThickness, h);
 

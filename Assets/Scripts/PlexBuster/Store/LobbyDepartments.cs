@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using PlexBuster.Data;
 using UnityEngine;
 
 namespace PlexBuster.Store
@@ -30,7 +31,10 @@ namespace PlexBuster.Store
                     .ThenBy(s => s.index)
                     .Select(s => new DoorHall.Door(s.section.Title, pose => StoreNavigator.Instance.EnterSection(s.section, pose)))
                     .ToList();
-                var hall = DoorHall.Build("Departments", theme, doors, null, transform.position, transform.rotation,
+                // At the end of the corridor: everything on the Plex watchlist that the library has.
+                var watchlist = new DoorHall.Door("My Watchlist", pose =>
+                    StoreNavigator.Instance.EnterRoom("My Watchlist", new LibraryQuery { Filter = FilterType.Watchlist }, pose));
+                var hall = DoorHall.Build("Departments", theme, doors, watchlist, transform.position, transform.rotation,
                     withExit: false, entranceSign: signText);
                 hall.transform.SetParent(transform, true);
             }

@@ -55,18 +55,28 @@ namespace PlexBuster.Data
             Directory.CreateDirectory(posterCacheDir);
         }
 
-        internal async Task<PlexContainer> GetAsync(string pathAndQuery, CancellationToken ct)
+        internal Task<PlexContainer> GetAsync(string pathAndQuery, CancellationToken ct) =>
+            GetJsonAsync(serverUrl + pathAndQuery, pathAndQuery, CacheTtl, ct);
+
+        /// <summary>
+        /// A plex.tv service rather than the server (the watchlist lives on the account). Cached briefly,
+        /// since a watchlist changes more often than a library.
+        /// </summary>
+        internal Task<PlexContainer> GetAccountAsync(string url, CancellationToken ct) =>
+            GetJsonAsync(url, url, TimeSpan.FromMinutes(10), ct);
+
+        async Task<PlexContainer> GetJsonAsync(string url, string label, TimeSpan ttl, CancellationToken ct)
         {
-            var cacheFile = Path.Combine(responseCacheDir, Hash(pathAndQuery) + ".json");
-            if (File.Exists(cacheFile) && DateTime.UtcNow - File.GetLastWriteTimeUtc(cacheFile) < CacheTtl)
+            var cacheFile = Path.Combine(responseCacheDir, Hash(label) + ".json");
+            if (File.Exists(cacheFile) && DateTime.UtcNow - File.GetLastWriteTimeUtc(cacheFile) < ttl)
                 return Parse(await File.ReadAllTextAsync(cacheFile, ct));
 
             string json;
             try
             {
-                using var request = UnityWebRequest.Get(serverUrl + pathAndQuery);
+                using var request = UnityWebRequest.Get(url);
                 request.SetRequestHeader("Accept", "application/json");
-                await SendAsync(request, pathAndQuery, ct);
+                await SendAsync(request, label, ct);
                 json = request.downloadHandler.text;
             }
             catch (Exception e) when (e is not OperationCanceledException && File.Exists(cacheFile))

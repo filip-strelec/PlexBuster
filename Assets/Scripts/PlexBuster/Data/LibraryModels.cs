@@ -5,7 +5,7 @@ namespace PlexBuster.Data
 {
     public enum MediaKind { Movie, Show }
 
-    public enum FilterType { All, Genre, Actor, Director, Decade, Year, Collection, Studio, ContentRating, RecentlyAdded }
+    public enum FilterType { All, Genre, Actor, Director, Decade, Year, Collection, Studio, ContentRating, RecentlyAdded, Watchlist }
 
     public enum SortOrder { Title, YearNewest, YearOldest, Rating, RecentlyAdded }
 
@@ -24,6 +24,7 @@ namespace PlexBuster.Data
     public class LibraryItem
     {
         public string Id;
+        public string Guid;           // source-wide identity (Plex: plex://movie/…), used to match the watchlist
         public string SectionId;
         public MediaKind Kind;
         public string Title;
