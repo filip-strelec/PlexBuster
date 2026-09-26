@@ -35,8 +35,9 @@ namespace PlexBuster.Store
         Material beam;
         Color beamColour;
 
-        protected override float DimmedTo => 0.03f;
-        protected override float AmbientLit => 0.35f;
+        // House lights fully off during the film; up, the room is lit like a cinema before the show.
+        protected override float DimmedTo => 0f;
+        protected override float AmbientLit => 0.8f * Theme.cinemaHouseLights;
         protected override float AmbientDark => 0.03f;
         protected override string IdleNotice => "<b>PLEXBUSTER CINEMA</b>\n<size=45%>Put a tape in the console by your seat</size>";
 
@@ -65,6 +66,8 @@ namespace PlexBuster.Store
             room.OnPlayerChanged();
 
             var shelf = room.Shelf(room.transform, "NowShowing", new Vector3(-4.2f, 0, 0.24f), Quaternion.identity, 6, 4);
+            // On the front wall between the shelf and the door: tapes dropped down the rows come back with a press.
+            room.ReshelveButtonOnWall(shelf, new Vector3(-3.63f, 1.25f, 0), Vector3.forward);
             await room.StockShelf(shelf, "NOW SHOWING", 24);
             return room;
         }
@@ -103,17 +106,49 @@ namespace PlexBuster.Store
             }
             Exit = StoreShell.FrontWallWithExit(shell, Theme, Width, Ceiling);
 
-            // Sconces between the pilasters; they fade out when the film starts.
-            var sconce = Glow("Sconce", new Color(1f, 0.75f, 0.45f) * 2.5f);
+            // House lights, all off once the film starts (only the step lights stay, faintly). Sconces between the
+            // pilasters wash the walls; downlights in the ceiling light the aisle, the seats and the front.
+            var level = Theme.cinemaHouseLights;
+            var sconce = Glow("Sconce", new Color(1f, 0.75f, 0.45f) * 2.5f, 0.03f);
             for (var side = -1; side <= 1; side += 2)
             for (var z = 3.75f; z < Depth - 1; z += 3.5f)
             {
                 var y = z < AisleDepth + RowDepth * Rows ? 1.6f - RowDrop * (z - AisleDepth) / RowDepth : FrontFloor + 2.4f;
                 Trim(shell, "Sconce", new Vector3(side * (Width / 2 - 0.05f), y, z), new Vector3(0.1f, 0.35f, 0.22f), sconce);
-                HouseLight(shell, new Vector3(side * (Width / 2 - 0.5f), y, z), Warm, 0.9f, 5.5f);
+                HouseLight(shell, new Vector3(side * (Width / 2 - 0.5f), y, z), Warm, 1.4f * level, 5.5f);
             }
-            HouseLight(shell, new Vector3(0, Ceiling - 0.4f, AisleDepth / 2 + 0.5f), Warm, 1f, 7f);
 
+            var can = Glow("Downlight", new Color(1f, 0.85f, 0.65f) * 3f, 0f);
+            for (var column = -1; column <= 1; column++)
+            foreach (var z in new[] { 1.4f, 5f, 8.6f, 12.6f })
+                Downlight(shell, new Vector3(column * 4.2f, Ceiling, z), Ceiling - FloorAt(z), can, level);
+        }
+
+        /// <summary>The floor height at <paramref name="z"/>: the aisle, a row, or the front.</summary>
+        static float FloorAt(float z) =>
+            z < AisleDepth ? 0 :
+            z < AisleDepth + RowDepth * Rows ? RowFloor(Mathf.FloorToInt((z - AisleDepth) / RowDepth)) :
+            FrontFloor;
+
+        /// <summary>A glowing can in the ceiling and a spot aimed at the floor <paramref name="drop"/> below it.</summary>
+        void Downlight(Transform parent, Vector3 ceilingPoint, float drop, Material can, float level)
+        {
+            var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            disc.name = "Downlight";
+            Destroy(disc.GetComponent<Collider>());
+            disc.transform.SetParent(parent, false);
+            disc.transform.localPosition = ceilingPoint + Vector3.down * 0.005f;
+            disc.transform.localScale = new Vector3(0.24f, 0.005f, 0.24f); // a unit cylinder is 2 tall
+            var renderer = disc.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = can;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+
+            // Light falls off with the square of distance: the front, 8 m down, needs four times the aisle's to look as lit.
+            var light = HouseLight(parent, ceilingPoint + Vector3.down * 0.1f, Warm, 0.3f * drop * drop * level, drop * 2.2f);
+            light.type = LightType.Spot;
+            light.transform.localRotation = Quaternion.LookRotation(Vector3.down);
+            light.spotAngle = 120f;
+            light.innerSpotAngle = 50f;
         }
 
         void BuildScreen()

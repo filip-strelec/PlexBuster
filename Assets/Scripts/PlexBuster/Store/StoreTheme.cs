@@ -45,6 +45,8 @@ namespace PlexBuster.Store
         public Material cinemaScreenMaterial;
         [Tooltip("Transparent additive material for light beams (the projector's, the info hologram's).")]
         public Material beamMaterial;
+        [Tooltip("How bright the cinema is with the house lights up (they go off while a film plays). Read when the cinema is built.")]
+        [Range(0, 3)] public float cinemaHouseLights = 1f;
 
         [Header("Rooms")]
         public float wallHeight = 3f;
@@ -54,6 +56,7 @@ namespace PlexBuster.Store
         public float lightSpacing = 4f;
         [Tooltip("How far below the ceiling the point lights hang; too close and they blow out the ceiling.")]
         public float lightDrop = 0.8f;
-        [Min(1)] public int tapesPerFrame = 24;
+        [Tooltip("Main-thread milliseconds per frame for stocking shelves and preparing posters. Lower is smoother but fills big rooms more slowly.")]
+        [Range(0.5f, 8f)] public float loadBudgetMs = 2f;
     }
 }

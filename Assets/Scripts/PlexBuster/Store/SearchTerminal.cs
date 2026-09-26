@@ -68,7 +68,8 @@ namespace PlexBuster.Store
             // Pedestal, desk, monitor.
             // The monitor's front sits at z = 0; the tilted keyboard starts just in front of it.
             Solid("Pedestal", new Vector3(0, 0.45f, -0.1f), new Vector3(0.46f, 0.9f, 0.5f), dark);
-            Solid("Desk", new Vector3(0, 0.915f, -0.05f), new Vector3(0.58f, 0.03f, 0.74f), body);
+            // Wider on the user's left (+X), where the re-shelve button sits beside the keyboard.
+            Solid("Desk", new Vector3(0.11f, 0.915f, -0.05f), new Vector3(0.8f, 0.03f, 0.74f), body);
             Solid("Monitor", new Vector3(0, 1.13f, -0.17f), new Vector3(0.42f, 0.34f, 0.34f), body);
             Solid("MonitorBack", new Vector3(0, 1.12f, -0.42f), new Vector3(0.3f, 0.26f, 0.18f), body);
 
@@ -122,6 +123,9 @@ namespace PlexBuster.Store
             Key("DEL", (7 - 4.5f) * Pitch + Pitch, 0.069f, 2 * Pitch - 0.006f, 0.13f, Backspace);
             Key("CLEAR", -3.25f * Pitch, 0.115f, 2.5f * Pitch - 0.006f, 0.1f, Clear);
             Key("SPACE", 1.25f * Pitch, 0.115f, 6.5f * Pitch - 0.006f, 0.1f, () => Type(' '));
+
+            // Tapes dropped or lost behind something: one press puts the room's tapes back on the shelves.
+            ReshelveButton.Create(keyboard, new Vector3(0.35f, 0, 0), Quaternion.identity, room.Reshelve);
         }
 
         /// <param name="u">Position to the user's right of centre.</param>

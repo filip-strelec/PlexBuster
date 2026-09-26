@@ -47,6 +47,7 @@ namespace PlexBuster.Store
             teleporter = FindAnyObjectByType<TeleportationProvider>();
             origin = FindAnyObjectByType<XROrigin>();
             if (Camera.main != null) fader = ScreenFader.Create(Camera.main, theme.fadeMaterial);
+            FrameBudget.Milliseconds = theme.loadBudgetMs;
         }
 
         /// <summary>A department: a hall with a door per genre in the section, and an "all titles" door at the end.</summary>

@@ -32,6 +32,7 @@ namespace PlexBuster.Store
         Material accentMaterial;
 
         readonly List<VhsTape> tapes = new();
+        readonly List<LibraryItem> slotItems = new(); // what each slot holds, to restock one whose tape is gone
         Transform tapeRoot;
         TextMeshPro label;
 
@@ -84,20 +85,54 @@ namespace PlexBuster.Store
             EnsureBuilt();
             if (IsFull) return null;
 
-            var (position, rotation) = SlotPose(tapes.Count);
-            var tape = Instantiate(prefab);
-            tape.Grab.PlaceOnShelf(tapeRoot, position, rotation);
-            tape.Bind(item, posters);
+            slotItems.Add(item);
+            var tape = Spawn(tapes.Count, prefab, posters);
             tapes.Add(tape);
             return tape;
+        }
+
+        VhsTape Spawn(int slot, VhsTape prefab, PosterCache posters)
+        {
+            var (position, rotation) = SlotPose(slot);
+            // Made inside the unit: made at the scene root and moved in would cost a second transform change.
+            var tape = Instantiate(prefab, tapeRoot, false);
+            tape.Grab.PlaceOnShelf(tapeRoot, position, rotation);
+            tape.Bind(slotItems[slot], posters);
+            return tape;
+        }
+
+        /// <summary>
+        /// Puts the unit's tapes back in their slots: ones lying around, pushed into something or fallen out of the
+        /// world (made again). Tapes in a hand, the basket or a player's slot stay where they are.
+        /// </summary>
+        /// <returns>How many tapes came back.</returns>
+        public int Reshelve(VhsTape prefab, PosterCache posters)
+        {
+            var count = 0;
+            for (var i = 0; i < tapes.Count; i++)
+            {
+                if (tapes[i] == null)
+                {
+                    tapes[i] = Spawn(i, prefab, posters);
+                    count++;
+                }
+                else if (tapes[i].Grab.TryReturnToShelf()) count++;
+            }
+            return count;
         }
 
         /// <summary>Removes the unit's tapes, except those the player has taken away (in hand, basket or info slot).</summary>
         public void Clear()
         {
             foreach (var tape in tapes)
-                if (tape != null && tape.transform.parent == tapeRoot) Destroy(tape.gameObject);
+            {
+                if (tape == null) continue;
+                if (tape.transform.parent == tapeRoot) Destroy(tape.gameObject);
+                // Its slot goes to another title now; putting it back there would stack two tapes.
+                else tape.Grab.ForgetSlot();
+            }
             tapes.Clear();
+            slotItems.Clear();
         }
 
         /// <summary>Local pose of a tape standing in a slot, leaning back against the row.</summary>

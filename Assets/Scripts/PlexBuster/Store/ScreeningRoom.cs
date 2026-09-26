@@ -25,7 +25,7 @@ namespace PlexBuster.Store
 
         readonly List<(Light Light, float Intensity)> houseLights = new();
         readonly List<(Light Light, float Intensity)> spills = new();
-        readonly List<(Material Material, Color Colour)> glows = new();
+        readonly List<(Material Material, Color Colour, float Off)> glows = new();
         protected readonly List<Object> Owned = new();
         float dim = 1;
         SphericalHarmonicsL2 ambientProbe;
@@ -163,11 +163,12 @@ namespace PlexBuster.Store
         }
 
         /// <summary>An emissive material that dims with the room lights (lamp shades, sconces).</summary>
-        protected Material Glow(string name, Color hdr)
+        /// <param name="off">How much of its glow is left with the room lights fully down.</param>
+        protected Material Glow(string name, Color hdr, float off = 0.15f)
         {
             var material = Own(new Material(Theme.lightPanelMaterial) { name = name });
             material.SetColor(BaseColorId, hdr);
-            glows.Add((material, hdr));
+            glows.Add((material, hdr, off));
             return material;
         }
 
@@ -190,8 +191,13 @@ namespace PlexBuster.Store
                 _ => 1f,
             };
             dim = Mathf.MoveTowards(dim, target, Time.deltaTime / 2.5f);
-            foreach (var (light, intensity) in houseLights) light.intensity = intensity * dim;
-            foreach (var (material, colour) in glows) material.SetColor(BaseColorId, colour * Mathf.Lerp(0.15f, 1f, dim));
+            foreach (var (light, intensity) in houseLights)
+            {
+                light.intensity = intensity * dim;
+                // Fully down, a light is switched off, not just black: it costs nothing while the film plays.
+                light.enabled = dim > 0.001f;
+            }
+            foreach (var (material, colour, off) in glows) material.SetColor(BaseColorId, colour * Mathf.Lerp(off, 1f, dim));
             SetAmbient(Mathf.Lerp(AmbientDark, AmbientLit, (dim - DimmedTo) / Mathf.Max(0.01f, 1 - DimmedTo)));
 
             var picture = Player.AverageColor;
@@ -247,6 +253,14 @@ namespace PlexBuster.Store
             unit.SetLabel(label, Theme.labelColor);
             foreach (var item in items.Take(unit.Capacity)) unit.AddTape(item, Theme.tapePrefab, Posters);
         }
+
+        /// <summary>
+        /// A <see cref="ReshelveButton"/> for <paramref name="unit"/> on a wall, the button facing
+        /// <paramref name="outward"/> with its legend below.
+        /// </summary>
+        protected void ReshelveButtonOnWall(ShelfUnit unit, Vector3 wallPoint, Vector3 outward) =>
+            ReshelveButton.Create(transform, wallPoint, Quaternion.LookRotation(Vector3.down, outward),
+                () => unit != null ? unit.Reshelve(Theme.tapePrefab, Posters) : 0);
 
         protected ShelfUnit Shelf(Transform parent, string name, Vector3 position, Quaternion rotation, int columns, int rows)
         {

@@ -72,9 +72,28 @@ namespace PlexBuster.Store
         {
             filter = SearchFilter.Normalize(query).Trim();
             MatchCount = items.Count(Matches);
+            ApplyFilter();
+        }
+
+        void ApplyFilter()
+        {
             foreach (var unit in shelves)
             foreach (var tape in unit.Tapes)
                 if (tape != null && tape.Item != null) tape.SetFilteredOut(!Matches(tape.Item));
+        }
+
+        /// <summary>
+        /// Puts every tape of the room back in its slot: dropped, pushed into a shelf, or fallen out of reach
+        /// (see <see cref="ShelfUnit.Reshelve"/>).
+        /// </summary>
+        /// <returns>How many tapes came back.</returns>
+        public int Reshelve()
+        {
+            var count = 0;
+            foreach (var unit in shelves) count += unit.Reshelve(theme.tapePrefab, posters);
+            // Tapes back on the shelf that don't match the search hide again.
+            if (count > 0) ApplyFilter();
+            return count;
         }
 
         /// <summary>The room's items that match the current search, in shelf order.</summary>
@@ -164,17 +183,42 @@ namespace PlexBuster.Store
             }
         }
 
+        /// <summary>
+        /// Stocks the shelves within the frame's loading budget (<see cref="FrameBudget"/>), so a room of thousands
+        /// of tapes fills in at full frame rate. Shelves nearest the view on walking in go first, and so do their
+        /// posters: the far corners fill in last.
+        /// </summary>
         IEnumerator Fill()
         {
-            var index = 0;
+            var units = new List<(ShelfUnit Unit, int First)>();
+            var first = 0;
             foreach (var unit in shelves)
             {
-                while (!unit.IsFull && index < items.Count)
+                units.Add((unit, first));
+                first += unit.Capacity;
+            }
+            var focus = RoomLayout.Entry.position + RoomLayout.Entry.forward * 2.5f;
+            units.Sort((a, b) => (a.Unit.transform.localPosition - focus).sqrMagnitude
+                .CompareTo((b.Unit.transform.localPosition - focus).sqrMagnitude));
+
+            // Posters share the budget; a few tapes a frame go up regardless, so arriving posters can't hold up the shelves.
+            const int atLeastPerFrame = 4;
+            var thisFrame = 0;
+            foreach (var (unit, start) in units)
+            {
+                for (var index = start + unit.Count; index < items.Count && !unit.IsFull; index++)
                 {
-                    var item = items[index++];
-                    var tape = unit.AddTape(item, theme.tapePrefab, posters);
-                    if (tape != null && !Matches(item)) tape.SetFilteredOut(true);
-                    if (index % theme.tapesPerFrame == 0) yield return null;
+                    if (thisFrame >= atLeastPerFrame && !FrameBudget.HasTime)
+                    {
+                        yield return null;
+                        thisFrame = 0;
+                    }
+                    using (FrameBudget.Measure())
+                    {
+                        var tape = unit.AddTape(items[index], theme.tapePrefab, posters);
+                        if (tape != null && !Matches(items[index])) tape.SetFilteredOut(true);
+                    }
+                    thisFrame++;
                 }
             }
             filling = null;

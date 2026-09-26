@@ -55,7 +55,11 @@ namespace PlexBuster.Store
             room.BuildDecor();
             room.OnPlayerChanged();
 
-            var shelf = room.Shelf(room.transform, "Shelf", new Vector3(-Width / 2 + 0.03f, 0, 4.2f), Quaternion.Euler(0, 90, 0), 5, 4);
+            // The unit's origin is its front: stand its back just clear of the wall's dado rail (4 cm out).
+            var shelf = room.Shelf(room.transform, "Shelf", new Vector3(-Width / 2 + 0.045f + ShelfUnit.Depth + ShelfUnit.BackSkin, 0, 4.2f),
+                Quaternion.Euler(0, 90, 0), 5, 4);
+            // On the wall just past the shelf's end, above the dado rail.
+            room.ReshelveButtonOnWall(shelf, new Vector3(-Width / 2, 1.25f, 4.95f), Vector3.right);
             await room.StockShelf(shelf, "JUST IN", 20);
             return room;
         }
