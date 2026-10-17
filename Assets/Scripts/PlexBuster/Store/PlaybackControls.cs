@@ -17,22 +17,25 @@ namespace PlexBuster.Store
 
         ScreenPlayer player;
         Action eject;
+        Action<int> resizeSubtitles;
         string idleMessage;
         TextMeshProUGUI title, detail, elapsed, remaining, idle;
         Slider bar;
-        Button previous, next, playPause, subtitles, startOver, zoom;
+        Button previous, next, playPause, subtitles, smallerSubtitles, biggerSubtitles, startOver, zoom;
         GameObject panel;
         bool dragging;
         float nextRefresh;
 
         /// <param name="localRotation">Readable from the -Z side of this rotation, like the store's other panels.</param>
+        /// <param name="resizeSubtitles">Makes the subtitles a step bigger (+1) or smaller (-1).</param>
         public static PlaybackControls Create(Transform parent, Vector3 localPosition, Quaternion localRotation,
-            ScreenPlayer player, Action eject, string idleMessage)
+            ScreenPlayer player, Action eject, Action<int> resizeSubtitles, string idleMessage)
         {
             var canvas = WorldUI.CreateCanvas(parent, "PlaybackControls", new Vector2(640, 340), localPosition, localRotation);
             var controls = canvas.gameObject.AddComponent<PlaybackControls>();
             controls.player = player;
             controls.eject = eject;
+            controls.resizeSubtitles = resizeSubtitles;
             controls.idleMessage = idleMessage;
             controls.Build(canvas);
             player.Changed += controls.Refresh;
@@ -84,8 +87,10 @@ namespace PlexBuster.Store
             next = WorldUI.Button(transport, ">|", 26, player.NextEpisode);
 
             var options = WorldUI.Area(root, "Options", new Vector2(0.02f, 0.05f), new Vector2(0.98f, 0.27f));
-            WorldUI.Grid(options, new Vector2(93, 66), new Vector2(7, 0), 6);
+            WorldUI.Grid(options, new Vector2(70, 66), new Vector2(6, 0), 8);
             subtitles = WorldUI.Button(options, "SUBS: OFF", 18, player.CycleSubtitles);
+            smallerSubtitles = WorldUI.Button(options, "A-", 22, () => resizeSubtitles?.Invoke(-1));
+            biggerSubtitles = WorldUI.Button(options, "A+", 26, () => resizeSubtitles?.Invoke(1));
             zoom = WorldUI.Button(options, "FIT", 20, () => player.Fill = !player.Fill);
             WorldUI.Button(options, "VOL -", 20, () => player.Volume -= 0.1f);
             WorldUI.Button(options, "VOL +", 20, () => player.Volume += 0.1f);
@@ -163,6 +168,9 @@ namespace PlexBuster.Store
             WorldUI.SetText(subtitles, player.SubtitlesBurntIn ? "SUBS: IN PICTURE"
                 : tracks.Count == 0 ? "NO SUBS"
                 : $"SUBS: {player.CurrentSubtitle?.Label ?? "OFF"}");
+            // Only subtitles drawn over the picture can be resized, not ones burnt into it.
+            smallerSubtitles.interactable = biggerSubtitles.interactable =
+                resizeSubtitles != null && player.CurrentSubtitle != null && !player.SubtitlesBurntIn;
             WorldUI.SetText(zoom, player.Fill ? "FILL" : "FIT");
             RefreshTime();
         }

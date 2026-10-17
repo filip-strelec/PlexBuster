@@ -22,6 +22,9 @@ namespace PlexBuster.Store
         static readonly int StaticId = Shader.PropertyToID("_Static");
         static readonly int GlassId = Shader.PropertyToID("_Glass");
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        const float SubtitleScaleStep = 0.1f, MinSubtitleScale = 0.4f, MaxSubtitleScale = 1.6f;
+        // How long a size change shows sample text when no line is on screen.
+        const float SubtitlePreviewSeconds = 2.5f;
 
         readonly List<(Light Light, float Intensity)> houseLights = new();
         readonly List<(Light Light, float Intensity)> spills = new();
@@ -32,6 +35,7 @@ namespace PlexBuster.Store
         Color ambientSky, ambientEquator, ambientGround;
         float reflections;
         bool ambientSaved;
+        float subtitleSize, subtitleScale = 1, subtitlePreviewUntil;
 
         protected StoreTheme Theme;
         protected PosterCache Posters;
@@ -122,6 +126,9 @@ namespace PlexBuster.Store
             Subtitles.textWrappingMode = TextWrappingModes.Normal;
             Subtitles.overflowMode = TextOverflowModes.Overflow;
             Subtitles.text = "";
+            this.subtitleSize = subtitleSize;
+            subtitleScale = Mathf.Clamp(PlayerPrefs.GetFloat(SubtitleScalePref, 1), MinSubtitleScale, MaxSubtitleScale);
+            Subtitles.fontSize = subtitleSize * subtitleScale;
 
             Notice = Signage.CreateText(screen, "Notice", new Vector3(0, 0, -0.012f), Quaternion.identity,
                 noticeSize, noticeColour, new Vector2(screenSize.x * 0.85f, screenSize.y * 0.6f));
@@ -141,8 +148,30 @@ namespace PlexBuster.Store
             {
                 if (Slot.Tape != null) Slot.Eject();
                 else Player.Stop();
-            }, "Put a tape in the slot to watch it");
+            }, ResizeSubtitles, "Put a tape in the slot to watch it");
             controls.transform.localScale *= scale;
+        }
+
+        /// <summary>Each room remembers its own subtitle size: the cinema screen is far bigger and further away.</summary>
+        string SubtitleScalePref => $"PlexBuster.SubtitleScale.{GetType().Name}";
+
+        /// <summary>Makes the subtitles a step bigger (+1) or smaller (-1), showing sample text if no line is up.</summary>
+        void ResizeSubtitles(int steps)
+        {
+            subtitleScale = Mathf.Clamp(Mathf.Round((subtitleScale + steps * SubtitleScaleStep) * 10) / 10, MinSubtitleScale, MaxSubtitleScale);
+            Subtitles.fontSize = subtitleSize * subtitleScale;
+            PlayerPrefs.SetFloat(SubtitleScalePref, subtitleScale);
+            subtitlePreviewUntil = Time.unscaledTime + SubtitlePreviewSeconds;
+            ShowSubtitleText();
+        }
+
+        void ShowSubtitleText()
+        {
+            var text = Player.SubtitleText;
+            if (string.IsNullOrEmpty(text) && Time.unscaledTime < subtitlePreviewUntil)
+                text = $"Subtitles at {Mathf.RoundToInt(subtitleScale * 100)}%";
+            // A translucent box behind the words keeps them readable on bright scenes.
+            Subtitles.text = string.IsNullOrEmpty(text) ? "" : $"<mark=#000000B0>{text.Replace("\n", "</mark>\n<mark=#000000B0>")}</mark>";
         }
 
         static Color Scale(Color colour, float factor) => new(colour.r * factor, colour.g * factor, colour.b * factor, colour.a);
@@ -211,6 +240,12 @@ namespace PlexBuster.Store
 
             ScreenMaterial.SetFloat(VideoAspectId, Player.VideoAspect);
             ScreenMaterial.SetFloat(FillId, Player.Fill ? 1 : 0);
+
+            if (subtitlePreviewUntil > 0 && Time.unscaledTime >= subtitlePreviewUntil)
+            {
+                subtitlePreviewUntil = 0;
+                ShowSubtitleText();
+            }
         }
 
         protected virtual void OnPlayerChanged()
@@ -227,9 +262,7 @@ namespace PlexBuster.Store
                 _ => "",
             };
 
-            // A translucent box behind the words keeps them readable on bright scenes.
-            var text = Player.SubtitleText;
-            Subtitles.text = string.IsNullOrEmpty(text) ? "" : $"<mark=#000000B0>{text.Replace("\n", "</mark>\n<mark=#000000B0>")}</mark>";
+            ShowSubtitleText();
         }
 
         /// <summary>How much snow the screen shows while a title loads (a CRT's, not a cinema's).</summary>
