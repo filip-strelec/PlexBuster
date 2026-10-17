@@ -11,16 +11,18 @@ using UnityEngine;
 namespace PlexBuster.Data
 {
     /// <summary>
-    /// Plays library items on Plex apps that accept remote control (a TV's Plex app with "Advertise as player"
-    /// on), with Plex's remote-control ("companion") API: create a play queue on the server, then tell the player
-    /// to play it.
+    /// Plays library items on a TV: create a play queue on the server, then tell the TV's Plex app to play it,
+    /// either with Plex's remote-control ("companion") API, for Plex apps with "Advertise as player" on, or by
+    /// casting to the TV's Chromecast (<see cref="PlexCast"/>). The new Plex TV apps (2026) dropped the companion
+    /// API, so for them Cast is the only way in.
     /// </summary>
     /// <remarks>
     /// Players are found through the account's device list: every non-server device's address is asked
-    /// whether it is a player. Plex's LAN discovery (GDM) doesn't help here: the Plex app on an Android TV on
-    /// Ethernet doesn't answer it, not even the server's own searches, so the server can't relay commands to the
-    /// TV either; they go to the player directly. Player endpoints are plain HTTP, which UnityWebRequest refuses
-    /// under this project's settings, hence HttpClient for them.
+    /// whether it is a companion player, and its host whether it is a Cast device. Plex's LAN discovery (GDM) and
+    /// Cast's (mDNS) don't help here: the Plex app on an Android TV on Ethernet doesn't answer GDM, not even the
+    /// server's own searches, so the server can't relay commands to the TV either; and this PC's firewall blocks
+    /// the replies to both. Commands go to the player directly. Player endpoints are plain HTTP, which
+    /// UnityWebRequest refuses under this project's settings, hence HttpClient for them.
     /// </remarks>
     public class PlexRemotePlayback : IRemotePlayback
     {
@@ -30,12 +32,16 @@ namespace PlexBuster.Data
         static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(10);
         // A player takes a few seconds to start (paused, buffering, then playing).
         static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
+        // Casting also opens Plex on the TV first, which can take a while when the TV was on another app.
+        static readonly TimeSpan CastTimeout = TimeSpan.FromSeconds(45);
+        // Cast devices describe themselves over plain HTTP on this port.
+        const int CastInfoPort = 8008;
 
         static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
 
         readonly PlexClient client;
         readonly string preferred;
-        (string MachineId, Uri Address)? server;
+        (string MachineId, string Version, Uri Address)? server;
         int commandId;
 
         /// <param name="preferredPlayer">Name, model, id or address (or part of one) of the player to put first.</param>
@@ -57,8 +63,13 @@ namespace PlexBuster.Data
                 .GroupBy(c => c.Address).Select(g => g.First())
                 .ToList() ?? new();
 
-            var found = await Task.WhenAll(candidates.Select(c => ProbeAsync(c.Address, c.Device, ct)));
-            return found.Where(p => p != null)
+            var companion = Task.WhenAll(candidates.Select(c => ProbeAsync(c.Address, c.Device, ct)));
+            var cast = Task.WhenAll(candidates.GroupBy(c => new Uri(c.Address).Host)
+                .Select(g => ProbeCastAsync(g.Key, g.First().Device, ct)));
+            // A TV that still takes companion commands is used that way; Cast is for the ones that don't.
+            var players = (await companion).Where(p => p != null).ToList();
+            players.AddRange((await cast).Where(p => p != null && !players.Any(c => new Uri(c.Address).Host == p.Address)));
+            return players
                 .GroupBy(p => p.Id).Select(g => g.First())
                 .OrderByDescending(p => p.Preferred).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -73,25 +84,49 @@ namespace PlexBuster.Data
                 var player = XDocument.Parse(response).Root?.Element("Player");
                 if (player == null || !((string)player.Attribute("protocolCapabilities") ?? "").Contains("playback")) return null;
 
-                var name = (string)player.Attribute("title") ?? (string)device.Attribute("name");
-                var model = string.Join(" ", new[] { (string)device.Attribute("vendor"), (string)device.Attribute("model") }
-                    .Where(s => !string.IsNullOrEmpty(s)));
-                var result = new RemotePlayer
+                return Describe(new RemotePlayer
                 {
                     Id = (string)player.Attribute("machineIdentifier"),
-                    Name = name,
-                    Details = string.Join(" · ", new[] { model, new Uri(address).Host }.Where(s => s.Length > 0)),
+                    Name = (string)player.Attribute("title") ?? (string)device.Attribute("name"),
                     Address = address,
-                };
-                var product = (string)player.Attribute("product") ?? "";
-                result.Preferred = preferred.Length > 0 && new[] { name, product, model, result.Id, address }
-                    .Any(s => s != null && s.IndexOf(preferred, StringComparison.OrdinalIgnoreCase) >= 0);
-                return result;
+                }, new Uri(address).Host, device, (string)player.Attribute("product"));
             }
             catch (Exception) when (!ct.IsCancellationRequested)
             {
                 return null;
             }
+        }
+
+        /// <summary>The Cast device at <paramref name="host"/> (the TV that <paramref name="device"/> runs on), or null.</summary>
+        async Task<RemotePlayer> ProbeCastAsync(string host, XElement device, CancellationToken ct)
+        {
+            try
+            {
+                var info = $"http://{host}:{CastInfoPort}/setup/eureka_info?params=name";
+                await SendToPlayerAsync(info, null, ProbeTimeout, info, ct);
+                return Describe(new RemotePlayer
+                {
+                    Id = (string)device.Attribute("clientIdentifier"),
+                    Name = (string)device.Attribute("name"),
+                    Address = host,
+                    ViaCast = true,
+                }, host, device, (string)device.Attribute("product"));
+            }
+            catch (Exception) when (!ct.IsCancellationRequested)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Fills in the details that tell players apart, and whether the player matches PLEX_PLAYER.</summary>
+        RemotePlayer Describe(RemotePlayer player, string host, XElement device, string product)
+        {
+            var model = string.Join(" ", new[] { (string)device.Attribute("vendor"), (string)device.Attribute("model") }
+                .Where(s => !string.IsNullOrEmpty(s)));
+            player.Details = string.Join(" · ", new[] { model, host }.Where(s => s.Length > 0));
+            player.Preferred = preferred.Length > 0 && new[] { player.Name, product, model, player.Id, player.Address }
+                .Any(s => s != null && s.IndexOf(preferred, StringComparison.OrdinalIgnoreCase) >= 0);
+            return player;
         }
 
         public async Task<PlaybackPlan> PlanAsync(LibraryItem item, CancellationToken ct)
@@ -126,7 +161,7 @@ namespace PlexBuster.Data
 
         public async Task PlayAsync(RemotePlayer player, PlaybackPlan plan, bool resume, CancellationToken ct)
         {
-            var (machineId, address) = await GetServerAsync(ct);
+            var (machineId, version, address) = await GetServerAsync(ct);
 
             // A show's queue carries on into the following episodes.
             var continuous = plan.Item.Kind == MediaKind.Show ? 1 : 0;
@@ -136,14 +171,39 @@ namespace PlexBuster.Data
             if (queue.playQueueID == 0) throw new InvalidOperationException("the server didn't create a play queue");
 
             var key = $"/library/metadata/{plan.Key}";
+            var offsetMs = resume ? plan.ResumeMs : 0;
+            if (player.ViaCast)
+            {
+                await PlexCast.PlayAsync(player.Address, new PlexCastRequest
+                {
+                    Key = key,
+                    OffsetMs = offsetMs,
+                    PlayQueueId = queue.playQueueID,
+                    MachineId = machineId,
+                    ServerAddress = address,
+                    ServerVersion = version,
+                    // The TV streams with it; it goes to the TV over TLS and is never logged.
+                    Token = client.Token,
+                }, CastTimeout, ct);
+            }
+            else
+            {
+                await PlayWithCompanionAsync(player, queue.playQueueID, key, offsetMs, machineId, address, ct);
+            }
+            Debug.Log($"[Playback] {player.Name} is playing {plan.Item.Title}" + (plan.EpisodeLabel != null ? $" {plan.EpisodeLabel}" : ""));
+        }
+
+        async Task PlayWithCompanionAsync(RemotePlayer player, long playQueueId, string key, long offsetMs,
+            string machineId, Uri address, CancellationToken ct)
+        {
             var query = string.Join("&",
                 $"key={Uri.EscapeDataString(key)}",
-                $"offset={(resume ? plan.ResumeMs : 0)}",
+                $"offset={offsetMs}",
                 $"machineIdentifier={machineId}",
                 $"protocol={address.Scheme}",
                 $"address={Uri.EscapeDataString(address.Host)}",
                 $"port={address.Port}",
-                $"containerKey={Uri.EscapeDataString($"/playQueues/{queue.playQueueID}?own=1&window=200")}",
+                $"containerKey={Uri.EscapeDataString($"/playQueues/{playQueueId}?own=1&window=200")}",
                 "type=video",
                 $"commandID={++commandId}",
                 // The player streams with it; it's a LAN request and never logged.
@@ -152,7 +212,6 @@ namespace PlexBuster.Data
                 $"{player.Name}: play", ct);
 
             await WaitUntilPlayingAsync(player, key, ct);
-            Debug.Log($"[Playback] {player.Name} is playing {plan.Item.Title}" + (plan.EpisodeLabel != null ? $" {plan.EpisodeLabel}" : ""));
         }
 
         async Task WaitUntilPlayingAsync(RemotePlayer player, string key, CancellationToken ct)
@@ -182,14 +241,15 @@ namespace PlexBuster.Data
         }
 
         /// <summary>
-        /// The server's id, and the address the player should stream from: its LAN connection (a plex.direct name
-        /// with a valid certificate, as Plex's own apps use), falling back to PLEX_URL.
+        /// The server's id and version, and the address the player should stream from: its LAN connection (a
+        /// plex.direct name with a valid certificate, as Plex's own apps use), falling back to PLEX_URL.
         /// </summary>
-        async Task<(string MachineId, Uri Address)> GetServerAsync(CancellationToken ct)
+        async Task<(string MachineId, string Version, Uri Address)> GetServerAsync(CancellationToken ct)
         {
             if (server != null) return server.Value;
 
-            var machineId = (await client.GetAsync("/identity", ct)).machineIdentifier;
+            var identity = await client.GetAsync("/identity", ct);
+            var machineId = identity.machineIdentifier;
             var address = new Uri(client.ServerUrl);
             try
             {
@@ -206,7 +266,7 @@ namespace PlexBuster.Data
                 Debug.LogWarning($"[Playback] Couldn't look up the server's LAN address ({e.Message}); players will use {address.Host}");
             }
 
-            server = (machineId, address);
+            server = (machineId, identity.version, address);
             return server.Value;
         }
 

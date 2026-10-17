@@ -10,7 +10,8 @@ namespace PlexBuster.Data
         public string Id;
         public string Name;
         public string Details;    // vendor, model, address: tells similar names apart
-        public string Address;    // base URL of its remote-control endpoint
+        public string Address;    // base URL of its remote-control endpoint, or a Cast device's host
+        public bool ViaCast;      // controlled with Google Cast rather than Plex's companion API
         public bool Preferred;    // matches the PLEX_PLAYER setting
 
         public override string ToString() => $"{Name} ({Address})";

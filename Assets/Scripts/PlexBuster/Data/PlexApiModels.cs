@@ -15,6 +15,7 @@ namespace PlexBuster.Data
         public int totalSize;
         public int offset;
         public string machineIdentifier;   // /identity
+        public string version;             // /identity: the server's
         public long playQueueID;           // POST /playQueues
         public List<PlexMetadata> Metadata;
         public List<PlexDirectory> Directory;
